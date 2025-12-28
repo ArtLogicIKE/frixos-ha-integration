@@ -13,6 +13,8 @@ from .const import (
     PARAM_LATITUDE,
     PARAM_LONGITUDE,
     PARAM_TIMEZONE,
+    PARAM_MSG_COLOR,
+    PARAM_NIGHT_MSG_COLOR,
     PASSWORD_PARAMS,
 )
 from .coordinator import FrixosDataUpdateCoordinator
@@ -24,6 +26,8 @@ TEXT_MAX_LENGTHS = {
     PARAM_LATITUDE: 12,
     PARAM_LONGITUDE: 12,
     PARAM_TIMEZONE: 64,
+    PARAM_MSG_COLOR: 7,  # Hex color format: #RRGGBB
+    PARAM_NIGHT_MSG_COLOR: 7,  # Hex color format: #RRGGBB
 }
 
 TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
@@ -49,6 +53,18 @@ TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
         key=PARAM_TIMEZONE,
         name="Timezone",
         icon="mdi:map-clock",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    TextEntityDescription(
+        key=PARAM_MSG_COLOR,
+        name="Message Color (Day)",
+        icon="mdi:palette",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    TextEntityDescription(
+        key=PARAM_NIGHT_MSG_COLOR,
+        name="Message Color (Night)",
+        icon="mdi:palette",
         entity_category=EntityCategory.CONFIG,
     ),
 )
@@ -104,10 +120,45 @@ class FrixosText(FrixosEntity, TextEntity):
             return ""
         
         value = settings.get(self.entity_description.key)
-        return str(value) if value is not None else ""
+        if value is None:
+            return ""
+        
+        value_str = str(value)
+        
+        # Normalize color values when reading
+        if self.entity_description.key in (PARAM_MSG_COLOR, PARAM_NIGHT_MSG_COLOR):
+            value_str = self._normalize_color(value_str)
+        
+        return value_str
+
+    def _normalize_color(self, value: str) -> str:
+        """Normalize hex color value to #RRGGBB format."""
+        if not value:
+            return value
+        
+        # Remove any whitespace
+        value = value.strip()
+        
+        # Remove # if present (we'll add it back)
+        value = value.lstrip("#")
+        
+        # Handle 3-digit hex (e.g., "F00" -> "FF0000")
+        if len(value) == 3:
+            value = "".join(c * 2 for c in value)
+        
+        # Ensure we have 6 hex digits
+        if len(value) == 6 and all(c in "0123456789ABCDEFabcdef" for c in value):
+            return f"#{value.upper()}"
+        
+        # If it doesn't match hex format, return as-is (let device handle validation)
+        return value if value.startswith("#") else f"#{value}"
 
     async def async_set_value(self, value: str) -> None:
         """Update the current value."""
+        # Normalize color values to standard hex format
+        if self.entity_description.key in (PARAM_MSG_COLOR, PARAM_NIGHT_MSG_COLOR):
+            value = self._normalize_color(value)
+        
         success = await self.coordinator.async_set_setting(self.entity_description.key, value)
         if success:
             self.async_write_ha_state()
