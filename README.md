@@ -10,6 +10,7 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - **User-Friendly UI**: All settings are properly categorized as switches, numbers, selects, and text inputs
 
 ## Supported Entities
+   All Frixos projection clocks (https://buyfrixos.com) **with Firmware 62 or later.**
 
 ### Sensors (Diagnostic)
 - Light Level (lux)
