@@ -1,7 +1,7 @@
 {
   "domain": "frixos",
-  "name": "Frixos",
-  "codeowners": ["@frixos"],
+  "name": "Frixos Projection Clock",
+  "codeowners": ["@ArtLogicIKE"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/ArtLogicIKE/frixos-ha-integration",
@@ -9,6 +9,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/ArtLogicIKE/frixos-ha-integration/issues",
   "requirements": ["aiohttp>=3.8.0"],
-  "version": "1.0.0",
-  "icon": "icon.png"
+  "version": "1.0.0"
 }
