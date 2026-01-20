@@ -51,10 +51,19 @@ PARAM_FAHRENHEIT = "p36"
 PARAM_HOUR12 = "p37"
 PARAM_SCROLL_SPEED = "p38"
 PARAM_UPDATE_FIRMWARE = "p39"
-PARAM_DARK_THEME = "p40"
 PARAM_LANGUAGE = "p41"
 PARAM_PWM_FREQUENCY = "p42"
 PARAM_MAX_POWER = "p43"
+PARAM_LIBRE_REGION = "p44"
+PARAM_GLUCOSE_VALIDITY_DURATION = "p45"
+PARAM_WIFI_START = "p46"
+PARAM_WIFI_END = "p47"
+PARAM_SEC_TIME = "p48"
+PARAM_SEC_CGM = "p49"
+PARAM_DOTS_BREATHE = "p50"
+PARAM_GLUCOSE_HIGH = "p51"
+PARAM_GLUCOSE_LOW = "p52"
+PARAM_CGM_UNIT = "p53"
 
 # Font options
 FONT_OPTIONS = [
@@ -117,6 +126,24 @@ DEXCOM_REGION_OPTIONS = {
     3: "Rest of World",
 }
 
+# Libre region options
+LIBRE_REGION_OPTIONS = {
+    0: "Disabled",
+    1: "United States",
+    2: "Europe",
+    3: "Germany",
+    4: "France",
+    5: "Japan",
+    6: "Australia",
+    7: "Global / Rest of World",
+}
+
+# CGM unit options
+CGM_UNIT_OPTIONS = {
+    0: "mg/dL",
+    1: "mmol/L",
+}
+
 # Settings that trigger device restart
 RESTART_REQUIRED_PARAMS = {
     PARAM_HOSTNAME,
@@ -130,4 +157,57 @@ RESTART_REQUIRED_PARAMS = {
 # Password fields (should be masked in config flow)
 PASSWORD_PARAMS = {
     PARAM_WIFI_PASS,
+}
+
+# Map parameters to their page number and order (format: page.order)
+# Page 1 = Basic, Page 2 = Advanced, Page 3 = Integration
+PARAM_ORDER = {
+    # Page 1: Basic Settings
+    PARAM_FAHRENHEIT: "1.01",
+    PARAM_HOUR12: "1.02",
+    PARAM_SCROLL_SPEED: "1.03",
+    PARAM_UPDATE_FIRMWARE: "1.04",
+    PARAM_LANGUAGE: "1.05",
+    # Page 2: Advanced Settings
+    PARAM_X_OFFSET: "2.01",
+    PARAM_Y_OFFSET: "2.02",
+    PARAM_ROTATION: "2.03",
+    PARAM_DAY_FONT: "2.04",
+    PARAM_NIGHT_FONT: "2.05",
+    PARAM_QUIET_SCROLL: "2.06",
+    PARAM_QUIET_WEATHER: "2.07",
+    PARAM_SHOW_GRID: "2.08",
+    PARAM_MIRRORING: "2.09",
+    PARAM_COLOR_FILTER: "2.10",
+    PARAM_NIGHT_COLOR_FILTER: "2.11",
+    PARAM_MSG_COLOR: "2.12",
+    PARAM_MSG_FONT: "2.13",
+    PARAM_SCROLL_DELAY: "2.14",
+    PARAM_NIGHT_MSG_COLOR: "2.15",
+    PARAM_MESSAGE: "2.16",
+    PARAM_LATITUDE: "2.17",
+    PARAM_LONGITUDE: "2.18",
+    PARAM_TIMEZONE: "2.19",
+    PARAM_LUX_SENSITIVITY: "2.20",
+    PARAM_LUX_THRESHOLD: "2.21",
+    PARAM_DIM_DISABLE: "2.22",
+    PARAM_BRIGHTNESS_LED: "2.23",  # Will be split into Day/Night
+    PARAM_SHOW_LEADING_ZERO: "2.24",
+    PARAM_PWM_FREQUENCY: "2.25",
+    PARAM_MAX_POWER: "2.26",
+    PARAM_WIFI_START: "2.27",
+    PARAM_WIFI_END: "2.28",
+    PARAM_DOTS_BREATHE: "2.29",
+    # Page 3: Integration Settings
+    PARAM_HA_REFRESH_MINS: "3.01",
+    PARAM_STOCK_REFRESH_MINS: "3.02",
+    PARAM_DEXCOM_REFRESH: "3.03",
+    PARAM_DEXCOM_REGION: "3.04",
+    PARAM_LIBRE_REGION: "3.05",
+    PARAM_GLUCOSE_VALIDITY_DURATION: "3.06",
+    PARAM_SEC_TIME: "3.07",
+    PARAM_SEC_CGM: "3.08",
+    PARAM_GLUCOSE_HIGH: "3.09",
+    PARAM_GLUCOSE_LOW: "3.10",
+    PARAM_CGM_UNIT: "3.11",
 }

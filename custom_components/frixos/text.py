@@ -15,6 +15,7 @@ from .const import (
     PARAM_TIMEZONE,
     PARAM_MSG_COLOR,
     PARAM_NIGHT_MSG_COLOR,
+    PARAM_GLUCOSE_LOW,
     PASSWORD_PARAMS,
 )
 from .coordinator import FrixosDataUpdateCoordinator
@@ -28,6 +29,7 @@ TEXT_MAX_LENGTHS = {
     PARAM_TIMEZONE: 64,
     PARAM_MSG_COLOR: 7,  # Hex color format: #RRGGBB
     PARAM_NIGHT_MSG_COLOR: 7,  # Hex color format: #RRGGBB
+    PARAM_GLUCOSE_LOW: 4,  # Glucose threshold (typically 40-200)
 }
 
 TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
@@ -67,6 +69,12 @@ TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
         icon="mdi:palette",
         entity_category=EntityCategory.CONFIG,
     ),
+    TextEntityDescription(
+        key=PARAM_GLUCOSE_LOW,
+        name="Low Glucose Threshold",
+        icon="mdi:arrow-down-bold",
+        entity_category=EntityCategory.CONFIG,
+    ),
 )
 
 
@@ -100,6 +108,7 @@ class FrixosText(FrixosEntity, TextEntity):
             f"{coordinator.host}_{description.key}",
             description.name,
             description.icon,
+            description.key,
         )
         self.entity_description = description
         self._attr_native_min = 0
@@ -130,6 +139,16 @@ class FrixosText(FrixosEntity, TextEntity):
             value_str = self._normalize_color(value_str)
         
         return value_str
+    
+    @property
+    def state(self) -> str:
+        """Return the state of the entity."""
+        # For message field, truncate to 255 chars for display to comply with HA's limit
+        # The full value is still available in native_value for editing
+        native = self.native_value or ""
+        if self.entity_description.key == PARAM_MESSAGE and len(native) > 255:
+            return native[:252] + "..."
+        return native
 
     def _normalize_color(self, value: str) -> str:
         """Normalize hex color value to #RRGGBB format."""

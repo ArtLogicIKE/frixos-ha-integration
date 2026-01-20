@@ -18,6 +18,7 @@ from .const import (
     PARAM_DIM_DISABLE,
     PARAM_SHOW_LEADING_ZERO,
     PARAM_UPDATE_FIRMWARE,
+    PARAM_DOTS_BREATHE,
 )
 from .coordinator import FrixosDataUpdateCoordinator
 from .entity import FrixosEntity
@@ -77,6 +78,12 @@ SWITCH_DESCRIPTIONS: tuple[SwitchEntityDescription, ...] = (
         icon="mdi:update",
         entity_category=EntityCategory.CONFIG,
     ),
+    SwitchEntityDescription(
+        key=PARAM_DOTS_BREATHE,
+        name="Disable Breathing Time Dots",
+        icon="mdi:dots-horizontal",
+        entity_category=EntityCategory.CONFIG,
+    ),
 )
 
 
@@ -110,6 +117,7 @@ class FrixosSwitch(FrixosEntity, SwitchEntity):
             f"{coordinator.host}_{description.key}",
             description.name,
             description.icon,
+            description.key,
         )
         self.entity_description = description
 

@@ -20,6 +20,13 @@ from .const import (
     PARAM_HA_REFRESH_MINS,
     PARAM_STOCK_REFRESH_MINS,
     PARAM_DEXCOM_REFRESH,
+    PARAM_SCROLL_SPEED,
+    PARAM_WIFI_START,
+    PARAM_WIFI_END,
+    PARAM_GLUCOSE_VALIDITY_DURATION,
+    PARAM_SEC_TIME,
+    PARAM_SEC_CGM,
+    PARAM_GLUCOSE_HIGH,
 )
 from .coordinator import FrixosDataUpdateCoordinator
 from .entity import FrixosEntity
@@ -75,7 +82,7 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
     ),
     NumberEntityDescription(
         key=f"{PARAM_BRIGHTNESS_LED}_0",
-        name="LED Brightness (Day)",
+        name="LED Brightness Day",
         icon="mdi:led-on",
         native_min_value=1,
         native_max_value=100,
@@ -85,7 +92,7 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
     ),
     NumberEntityDescription(
         key=f"{PARAM_BRIGHTNESS_LED}_1",
-        name="LED Brightness (Night)",
+        name="LED Brightness Night",
         icon="mdi:led-on",
         native_min_value=1,
         native_max_value=100,
@@ -142,6 +149,75 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         native_unit_of_measurement="min",
         entity_category=EntityCategory.CONFIG,
     ),
+    NumberEntityDescription(
+        key=PARAM_SCROLL_SPEED,
+        name="Scroll Speed",
+        icon="mdi:speedometer",
+        native_min_value=1,
+        native_max_value=100,
+        native_step=1,
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_WIFI_START,
+        name="WiFi Active Hours Start",
+        icon="mdi:clock-time-one",
+        native_min_value=0,
+        native_max_value=23,
+        native_step=1,
+        native_unit_of_measurement="h",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_WIFI_END,
+        name="WiFi Active Hours End",
+        icon="mdi:clock-time-twelve",
+        native_min_value=0,
+        native_max_value=23,
+        native_step=1,
+        native_unit_of_measurement="h",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_GLUCOSE_VALIDITY_DURATION,
+        name="Glucose Data Validity Duration",
+        icon="mdi:timer",
+        native_min_value=1,
+        native_max_value=1440,
+        native_step=1,
+        native_unit_of_measurement="min",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_SEC_TIME,
+        name="Alternate Time Display Duration",
+        icon="mdi:clock-outline",
+        native_min_value=1,
+        native_max_value=300,
+        native_step=1,
+        native_unit_of_measurement="s",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_SEC_CGM,
+        name="Alternate CGM Display Duration",
+        icon="mdi:medical-bag",
+        native_min_value=1,
+        native_max_value=300,
+        native_step=1,
+        native_unit_of_measurement="s",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_GLUCOSE_HIGH,
+        name="High Glucose Threshold",
+        icon="mdi:arrow-up-bold",
+        native_min_value=70,
+        native_max_value=400,
+        native_step=1,
+        native_unit_of_measurement="mg/dL",
+        entity_category=EntityCategory.CONFIG,
+    ),
 )
 
 
@@ -170,11 +246,18 @@ class FrixosNumber(FrixosEntity, NumberEntity):
         description: NumberEntityDescription,
     ) -> None:
         """Initialize the number entity."""
+        # Extract base param key (remove _0 or _1 suffix for brightness)
+        # Both Day and Night brightness use the same order number
+        param_key = description.key
+        if param_key.startswith(f"{PARAM_BRIGHTNESS_LED}_"):
+            param_key = PARAM_BRIGHTNESS_LED
+        
         super().__init__(
             coordinator,
             f"{coordinator.host}_{description.key}",
             description.name,
             description.icon,
+            param_key,
         )
         self.entity_description = description
 

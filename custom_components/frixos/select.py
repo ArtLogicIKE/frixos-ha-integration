@@ -17,12 +17,16 @@ from .const import (
     PARAM_MSG_FONT,
     PARAM_DEXCOM_REGION,
     PARAM_LANGUAGE,
+    PARAM_LIBRE_REGION,
+    PARAM_CGM_UNIT,
     FONT_OPTIONS,
     COLOR_FILTER_OPTIONS,
     ROTATION_OPTIONS,
     MSG_FONT_OPTIONS,
     DEXCOM_REGION_OPTIONS,
     LANGUAGE_OPTIONS,
+    LIBRE_REGION_OPTIONS,
+    CGM_UNIT_OPTIONS,
 )
 from .coordinator import FrixosDataUpdateCoordinator
 from .entity import FrixosEntity
@@ -84,6 +88,20 @@ SELECT_DESCRIPTIONS: tuple[SelectEntityDescription, ...] = (
         options=list(LANGUAGE_OPTIONS.values()),
         entity_category=EntityCategory.CONFIG,
     ),
+    SelectEntityDescription(
+        key=PARAM_LIBRE_REGION,
+        name="Libre Region",
+        icon="mdi:map-marker",
+        options=list(LIBRE_REGION_OPTIONS.values()),
+        entity_category=EntityCategory.CONFIG,
+    ),
+    SelectEntityDescription(
+        key=PARAM_CGM_UNIT,
+        name="Glucose Display Unit",
+        icon="mdi:format-list-numbered",
+        options=list(CGM_UNIT_OPTIONS.values()),
+        entity_category=EntityCategory.CONFIG,
+    ),
 )
 
 
@@ -105,6 +123,8 @@ async def async_setup_entry(
         PARAM_MSG_FONT: MSG_FONT_OPTIONS,
         PARAM_DEXCOM_REGION: DEXCOM_REGION_OPTIONS,
         PARAM_LANGUAGE: LANGUAGE_OPTIONS,
+        PARAM_LIBRE_REGION: LIBRE_REGION_OPTIONS,
+        PARAM_CGM_UNIT: CGM_UNIT_OPTIONS,
     }
 
     entities = [
@@ -130,6 +150,7 @@ class FrixosSelect(FrixosEntity, SelectEntity):
             f"{coordinator.host}_{description.key}",
             description.name,
             description.icon,
+            description.key,
         )
         self.entity_description = description
         self._param_key = description.key
@@ -146,6 +167,10 @@ class FrixosSelect(FrixosEntity, SelectEntity):
             return None
         
         value = settings.get(self._param_key)
+        
+        # For cgm_unit, also check full name format
+        if value is None and self._param_key == PARAM_CGM_UNIT:
+            value = settings.get("cgm_unit")
         
         if value is None:
             return None

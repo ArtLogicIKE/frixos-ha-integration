@@ -61,6 +61,7 @@ class FrixosColor(FrixosEntity, ColorEntity):
             f"{coordinator.host}_{description.key}",
             description.name,
             description.icon,
+            description.key,
         )
         self.entity_description = description
         self._param_key = description.key

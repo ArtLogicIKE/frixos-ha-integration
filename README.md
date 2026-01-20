@@ -27,6 +27,7 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - Maintain Full Brightness
 - Show Leading Zero
 - Auto Firmware Update
+- Disable Breathing Time Dots
 
 ### Number Inputs (Configuration)
 - X Offset (0-160)
@@ -38,9 +39,16 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - LED Brightness Night (1-100%)
 - PWM Frequency (10-5000 Hz)
 - Max Power (1-1023)
+- Scroll Speed (1-100)
+- WiFi Active Hours Start (0-23 hours)
+- WiFi Active Hours End (0-23 hours)
 - Home Assistant Refresh Interval (1-7200 min)
 - Stock Refresh Interval (1-1440 min)
 - Dexcom Refresh Interval (1-60 min)
+- Glucose Data Validity Duration (1-1440 min)
+- Alternate Time Display Duration (1-300 seconds)
+- Alternate CGM Display Duration (1-300 seconds)
+- High Glucose Threshold (70-400 mg/dL)
 
 ### Select Dropdowns (Configuration)
 - Display Rotation (0°, 90°, 180°, 270°)
@@ -50,7 +58,9 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - Night Color Filter (same options)
 - Message Font Size (8pt, 10pt, 12pt)
 - Dexcom Region (Disabled, US, Japan, Rest of World)
+- Libre Region (Disabled, United States, Europe, Germany, France, Japan, Australia, Global / Rest of World)
 - Language (English, Deutsch, Français, etc.)
+- Glucose Display Unit (mg/dL, mmol/L)
 
 ### Color Pickers (Configuration)
 - Message Color (Day) - RGB color picker for scrolling messages during day
@@ -61,16 +71,11 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - Latitude
 - Longitude
 - Timezone (POSIX format, e.g., "EET-2EEST,M3.5.0/3,M10.5.0/4")
+- Low Glucose Threshold (mg/dL)
 
 ## Settings Not Included in Home Assistant Integration
 
 The following settings are available on the Frixos device but are **not currently exposed** as Home Assistant entities. These settings can still be configured directly through the device's web interface:
-
-### Switches (Not Implemented)
-- **Dark Theme** - Enable dark theme for the device display
-
-### Number Inputs (Not Implemented)
-- **Scroll Speed** - Control the scrolling speed of messages (separate from scroll delay)
 
 ### Text Inputs (Not Implemented)
 - **Hostname** - Device hostname (triggers device restart when changed)
@@ -111,7 +116,7 @@ The following settings are available on the Frixos device but are **not currentl
 3. **Copy the integration folder**
    ```bash
    # Clone this repository
-   git clone https://github.com/yourusername/frixos-ha-integration.git
+   git clone https://github.com/ArtLogicIKE/frixos-ha-integration.git
    
    # Copy the integration folder
    cp -r frixos-ha-integration/custom_components/frixos /config/custom_components/
@@ -178,6 +183,11 @@ Once configured, all entities will appear in Home Assistant:
 - **Numbers**: Settings → Devices & Services → Numbers (Configuration section)
 - **Selects**: Settings → Devices & Services → Selects (Configuration section)
 - **Texts**: Settings → Devices & Services → Texts (Configuration section)
+
+All configuration entities are organized with numeric prefixes (e.g., "1.01", "2.01", "3.01") that match the UI page structure:
+- **Page 1 (Basic)**: Basic settings like temperature unit, time format, scroll speed, etc.
+- **Page 2 (Advanced)**: Display settings, positioning, brightness, messages, etc.
+- **Page 3 (Integration)**: Home Assistant, Stock, Dexcom, Libre, and glucose-related settings
 
 Or use the search bar to find specific entities by name.
 
@@ -323,5 +333,9 @@ This integration is provided as-is for use with Frixos devices.
 - Real-time sensor monitoring
 - Support for all device parameters
 - Entity categories for better organization
-- Clean entity names without "Frixos" prefix
+- Numeric prefixes (page.order) for entity organization matching UI structure
+- Support for all configuration pages: Basic, Advanced, and Integration settings
+- Complete glucose monitoring integration (Dexcom, Libre, thresholds, units)
+- WiFi active hours scheduling
+- Alternate display duration controls
 
