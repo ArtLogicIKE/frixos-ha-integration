@@ -1,7 +1,6 @@
 {
-  "name": "Frixos",
+  "name": "Frixos Projection Clock",
   "content_in_root": false,
-  "filename": "frixos",
   "render_readme": true,
   "homeassistant": "2023.1.0"
 }
