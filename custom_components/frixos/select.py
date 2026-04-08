@@ -168,10 +168,6 @@ class FrixosSelect(FrixosEntity, SelectEntity):
         
         value = settings.get(self._param_key)
         
-        # For cgm_unit, also check full name format
-        if value is None and self._param_key == PARAM_CGM_UNIT:
-            value = settings.get("cgm_unit")
-        
         if value is None:
             return None
         
@@ -192,12 +188,8 @@ class FrixosSelect(FrixosEntity, SelectEntity):
             # Find key by value
             for key, val in self._options_map.items():
                 if val == option:
-                    success = await self.coordinator.async_set_setting(self._param_key, key)
-                    if success:
-                        self.async_write_ha_state()
+                    await self.coordinator.async_set_setting(self._param_key, key)
                     return
         else:
             # For string values (fonts), use the option directly
-            success = await self.coordinator.async_set_setting(self._param_key, option)
-            if success:
-                self.async_write_ha_state()
+            await self.coordinator.async_set_setting(self._param_key, option)
