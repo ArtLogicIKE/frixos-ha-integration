@@ -122,33 +122,27 @@ class FrixosText(FrixosEntity, TextEntity):
     def native_value(self) -> str | None:
         """Return the current value."""
         if not self.coordinator.data or not isinstance(self.coordinator.data, dict):
-            return ""
-        
+            return None
+
         settings = self.coordinator.data.get("settings", {})
         if not isinstance(settings, dict):
-            return ""
-        
+            return None
+
         value = settings.get(self.entity_description.key)
         if value is None:
-            return ""
-        
+            return None
+
         value_str = str(value)
-        
+
         # Normalize color values when reading
         if self.entity_description.key in (PARAM_MSG_COLOR, PARAM_NIGHT_MSG_COLOR):
             value_str = self._normalize_color(value_str)
-        
+
+        # Truncate message to 255 chars to comply with HA's state limit
+        if self.entity_description.key == PARAM_MESSAGE and len(value_str) > 255:
+            value_str = value_str[:252] + "..."
+
         return value_str
-    
-    @property
-    def state(self) -> str:
-        """Return the state of the entity."""
-        # For message field, truncate to 255 chars for display to comply with HA's limit
-        # The full value is still available in native_value for editing
-        native = self.native_value or ""
-        if self.entity_description.key == PARAM_MESSAGE and len(native) > 255:
-            return native[:252] + "..."
-        return native
 
     def _normalize_color(self, value: str) -> str:
         """Normalize hex color value to #RRGGBB format."""
@@ -178,6 +172,4 @@ class FrixosText(FrixosEntity, TextEntity):
         if self.entity_description.key in (PARAM_MSG_COLOR, PARAM_NIGHT_MSG_COLOR):
             value = self._normalize_color(value)
         
-        success = await self.coordinator.async_set_setting(self.entity_description.key, value)
-        if success:
-            self.async_write_ha_state()
+        await self.coordinator.async_set_setting(self.entity_description.key, value)

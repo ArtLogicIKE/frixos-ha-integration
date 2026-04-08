@@ -136,12 +136,8 @@ class FrixosSwitch(FrixosEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
-        success = await self.coordinator.async_set_setting(self.entity_description.key, 1)
-        if success:
-            self.async_write_ha_state()
+        await self.coordinator.async_set_setting(self.entity_description.key, 1)
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the switch off."""
-        success = await self.coordinator.async_set_setting(self.entity_description.key, 0)
-        if success:
-            self.async_write_ha_state()
+        await self.coordinator.async_set_setting(self.entity_description.key, 0)

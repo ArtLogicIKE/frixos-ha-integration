@@ -2,7 +2,7 @@
 from typing import Final
 
 DOMAIN: Final = "frixos"
-DEFAULT_SCAN_INTERVAL: Final = 60  # seconds
+DEFAULT_SCAN_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_TIMEOUT: Final = 10  # seconds
 DEFAULT_PORT: Final = 80
 
