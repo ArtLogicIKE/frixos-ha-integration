@@ -340,3 +340,6 @@ This integration is provided as-is for use with Frixos devices.
 - WiFi active hours scheduling
 - Alternate display duration controls
 
+### Version 1.0.3
+- minor bufixes
+
