@@ -1,7 +1,12 @@
 """Sensor platform for Frixos integration."""
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -16,27 +21,34 @@ SENSOR_DESCRIPTIONS: tuple[SensorEntityDescription, ...] = (
         key="lux",
         name="Light Level",
         native_unit_of_measurement="lx",
-        icon="mdi:brightness-6",
+        device_class=SensorDeviceClass.ILLUMINANCE,
+        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="uptime",
         name="Uptime",
         native_unit_of_measurement="s",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:timer-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="free_heap",
         name="Free Heap Memory",
-        native_unit_of_measurement="bytes",
+        native_unit_of_measurement="B",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:memory",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SensorEntityDescription(
         key="min_free_heap",
         name="Min Free Heap Memory",
-        native_unit_of_measurement="bytes",
+        native_unit_of_measurement="B",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:memory",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),

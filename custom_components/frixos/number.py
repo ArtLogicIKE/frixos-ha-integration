@@ -286,17 +286,19 @@ class FrixosNumber(FrixosEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
         param_key = self.entity_description.key
-        
+
         # Handle brightness LED array
         if param_key.startswith(f"{PARAM_BRIGHTNESS_LED}_"):
-            settings = self.coordinator.data.get("settings", {})
+            settings = {}
+            if self.coordinator.data and isinstance(self.coordinator.data, dict):
+                settings = self.coordinator.data.get("settings", {})
             brightness_array = list(settings.get(PARAM_BRIGHTNESS_LED, [0, 0]))
             index = int(param_key.split("_")[-1])
+            # Ensure array is long enough for the index
+            while len(brightness_array) <= index:
+                brightness_array.append(0)
             brightness_array[index] = int(value)
-            
-            success = await self.coordinator.async_set_setting(PARAM_BRIGHTNESS_LED, brightness_array)
+
+            await self.coordinator.async_set_setting(PARAM_BRIGHTNESS_LED, brightness_array)
         else:
-            success = await self.coordinator.async_set_setting(param_key, value)
-        
-        if success:
-            self.async_write_ha_state()
+            await self.coordinator.async_set_setting(param_key, value)
