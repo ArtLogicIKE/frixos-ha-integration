@@ -38,7 +38,7 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - Day Threshold (0-500 lux)
 - LED Brightness Day (1-100%)
 - LED Brightness Night (1-100%)
-- PWM Frequency (10-5000 Hz)
+- PWM Frequency (10-78000 Hz)
 - Max Power (1-1023)
 - Scroll Speed (1-100)
 - WiFi Active Hours Start (0-23 hours)
@@ -47,8 +47,8 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - Stock Refresh Interval (1-1440 min)
 - Dexcom Refresh Interval (1-60 min)
 - Glucose Data Validity Duration (1-1440 min)
-- Alternate Time Display Duration (1-300 seconds)
-- Alternate CGM Display Duration (1-300 seconds)
+- Alternate Time Display Duration (0-300 seconds)
+- Alternate CGM Display Duration (0-300 seconds)
 - High Glucose Threshold (70-400 mg/dL)
 
 ### Select Dropdowns (Configuration)
@@ -327,6 +327,11 @@ For issues or questions:
 This integration is provided as-is for use with Frixos devices.
 
 ## Changelog
+
+### Version 1.0.4
+- Updated PWM Frequency range to 10-78000 Hz
+- Updated Alternate Time Display Duration range to 0-300 seconds
+- Updated Alternate CGM Display Duration range to 0-300 seconds
 
 ### Version 1.0.0
 - Initial release
