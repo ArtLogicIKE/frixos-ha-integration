@@ -1,16 +1,36 @@
 # Frixos Home Assistant Integration
 
-A custom Home Assistant integration for controlling and monitoring Frixos devices.
+A custom Home Assistant integration for controlling and monitoring Frixos devices (firmware **v67+** recommended).
+
+## Layout engine and Home Assistant
+
+Firmware v67 introduced a full **screen layout engine** on the device: drag-and-drop widgets, per-profile day/night arrangements, graphs, static text slots, icons, and more. That editor is too complex to rebuild inside Home Assistant.
+
+Instead, this integration:
+
+1. Lets you **switch layouts** via a **Layout Preset** select (device gallery `.layout` files such as Default, Diabetic, Weather, Home Assistant, HA Graph, plus any custom presets you save on the device).
+2. Keeps **most of the older entity options** for compatibility with existing dashboards and automations.
+3. Routes layout-owned fields (message text, message/weather visibility, fonts, color filters, scroll delay, etc.) through `/api/screen` so they still affect the display.
+
+Design the layout on the device web UI; use Home Assistant to apply a saved preset and to tweak settings that still make sense from automations.
+
+**Deprecated options:** Many of the legacy switches/numbers/selects/texts mirror the pre–layout-engine settings model. They are kept for compatibility but are **deprecated by the layout system** and may be removed in a future version. Prefer editing layouts on the device (and switching presets from HA) for anything about on-screen placement and styling.
+
+**Removed options:** Some entities no longer worked under the layout engine and have been dropped, including **X Offset**, **Y Offset**, and **Scroll Speed** (widget positions and scrolling behavior live in the layout now).
 
 ## Features
 
-- **Full Settings Control**: Access and modify all device settings through Home Assistant entities
-- **Real-time Monitoring**: Monitor device status, sensor readings, and system information
-- **Automatic Updates**: Settings and sensor data are automatically refreshed every 60 seconds
-- **User-Friendly UI**: All settings are properly categorized as switches, numbers, selects, and text inputs
+- **Layout presets**: Apply ready-made or custom `.layout` files from the device without rebuilding the layout editor in HA
+- **Compatibility entities**: Most previous switches, numbers, selects, and texts remain available (see deprecation note above)
+- **Safe message updates**: Scrolling message and related layout-owned fields are written through `/api/screen`, not the legacy `p16`-only path
+- **Monitoring**: Light level, uptime, and heap sensors
+- **Polling**: Settings/status refresh every **5 minutes** by default (plus a short settle delay after writes)
+
+## Supported Devices
+
+All Frixos projection clocks (https://buyfrixos.com) with Firmware **62+**. Layout presets and layout-safe message writes require the v67 layout engine.
 
 ## Supported Entities
-   All Frixos projection clocks (https://buyfrixos.com) **with Firmware 62 or later.**
 
 ### Sensors (Diagnostic)
 - Light Level (lux)
@@ -18,61 +38,48 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 - Free Heap Memory
 - Min Free Heap Memory
 
+### Layout
+- **Layout Preset** (select) — applies a `.layout` file from the device gallery. Full widget placement stays on the device web UI.
+
 ### Switches (Configuration)
 - Temperature in Fahrenheit
 - 12-Hour Time Format
-- Show Scrolling Message
-- Show Weather Forecast
+- Show Scrolling Message *(layout widget; deprecated as a standalone setting)*
+- Show Weather Forecast *(layout widget; deprecated as a standalone setting)*
 - Show Grid
 - Mirror Display
-- Maintain Full Brightness
 - Show Leading Zero
 - Auto Firmware Update
 - Disable Breathing Time Dots
 
 ### Number Inputs (Configuration)
-- X Offset (0-160)
-- Y Offset (0-160)
-- Scroll Delay (30-500 ms)
-- Light Sensitivity (0-50 lux)
-- Day Threshold (0-500 lux)
-- LED Brightness Day (1-100%)
-- LED Brightness Night (1-100%)
-- PWM Frequency (10-78000 Hz)
-- Max Power (1-1023)
-- Scroll Speed (1-100)
-- WiFi Active Hours Start (0-23 hours)
-- WiFi Active Hours End (0-23 hours)
-- Home Assistant Refresh Interval (1-7200 min)
-- Stock Refresh Interval (1-1440 min)
-- Dexcom Refresh Interval (1-60 min)
-- Glucose Data Validity Duration (1-1440 min)
-- Alternate Time Display Duration (0-300 seconds)
-- Alternate CGM Display Duration (0-300 seconds)
-- High Glucose Threshold (70-400 mg/dL)
+- Scroll Delay (30–255 ms, layout-owned; deprecated as a standalone setting)
+- Light Sensitivity / Day Threshold
+- LED Brightness Day / Night
+- PWM Frequency (60–50000 Hz)
+- Max Power
+- WiFi Active Hours Start / End
+- Home Assistant / Stock / Dexcom refresh intervals
+- Glucose Data Validity Duration
+- Alternate Time / CGM / Weather display durations
+- High Glucose Threshold
+- Dim Start Hour / Dim End Hour (used when Dim Mode is “Time of day”)
 
 ### Select Dropdowns (Configuration)
-- Display Rotation (0°, 90°, 180°, 270°)
-- Day Font (bold, light, lcd, nixie, etc.)
-- Night Font (same options)
-- Day Color Filter (None, Red, Green, Blue, B&W)
-- Night Color Filter (same options)
-- Message Font Size (8pt, 10pt, 12pt)
-- Dexcom Region (Disabled, US, Japan, Rest of World)
-- Libre Region (Disabled, United States, Europe, Germany, France, Japan, Australia, Global / Rest of World)
-- Language (English, Deutsch, Français, etc.)
-- Glucose Display Unit (mg/dL, mmol/L)
+- Layout Preset
+- Display Rotation
+- Day / Night Font *(layout-owned; deprecated as a standalone setting)*
+- Day / Night Color Filter *(layout-owned; deprecated as a standalone setting)*
+- Message Font Size (8–16pt, layout-owned; deprecated as a standalone setting)
+- Dim Mode (Auto brightness / Full brightness / Time of day)
+- Dexcom Region / Libre Region / Language / Glucose Display Unit
 
-### Color Pickers (Configuration)
-- Message Color (Day) - RGB color picker for scrolling messages during day
-- Message Color (Night) - RGB color picker for scrolling messages during night
-
-### Text Inputs (Configuration)
-- Scrolling Message (supports tokens like [HA:entity:path], [temp], etc.)
-- Latitude
-- Longitude
-- Timezone (POSIX format, e.g., "EET-2EEST,M3.5.0/3,M10.5.0/4")
-- Low Glucose Threshold (mg/dL)
+### Color / Text Inputs (Configuration)
+- Scrolling Message *(layout `scroll_text`; supports tokens like `[HA:…]`, `[temp]`, etc.)*
+- Message Color Day / Night *(layout-owned; deprecated as a standalone setting)*
+- Latitude / Longitude / Timezone
+- Low Glucose Threshold
+- Nightscout URL
 
 ## Settings Not Included in Home Assistant Integration
 
@@ -87,6 +94,11 @@ The following settings are available on the Frixos device but are **not currentl
 - **Dexcom Password** - Password for Dexcom integration (password field)
 - **WiFi SSID** - WiFi network name (triggers device restart when changed)
 - **WiFi Password** - WiFi network password (password field, triggers device restart when changed)
+- **Static IP / Gateway / Netmask / DNS** - Network addressing (triggers restart)
+- **Digit / aux schedules (p58/p59)** - Complex JSON schedules; edit on the device UI
+
+### Layout editor (device web UI only)
+Full widget placement, graphs, static text slots, and user icons are edited on the device. Save layouts there, then use **Layout Preset** in Home Assistant to switch between them. X/Y offsets and scroll speed are no longer exposed in HA for the same reason.
 
 ### Notes on Unimplemented Settings
 
@@ -186,9 +198,9 @@ Once configured, all entities will appear in Home Assistant:
 - **Texts**: Settings → Devices & Services → Texts (Configuration section)
 
 All configuration entities are organized with numeric prefixes (e.g., "1.01", "2.01", "3.01") that match the UI page structure:
-- **Page 1 (Basic)**: Basic settings like temperature unit, time format, scroll speed, etc.
-- **Page 2 (Advanced)**: Display settings, positioning, brightness, messages, etc.
-- **Page 3 (Integration)**: Home Assistant, Stock, Dexcom, Libre, and glucose-related settings
+- **Page 1 (Basic)**: Basic settings + Layout Preset
+- **Page 2 (Layout / Display)**: Display, brightness, message, location
+- **Page 3 (Integration)**: Home Assistant, Stock, Dexcom, Libre, Nightscout, glucose
 
 Or use the search bar to find specific entities by name.
 
@@ -197,6 +209,19 @@ Or use the search bar to find specific entities by name.
 You can create automations using Frixos entities:
 
 ```yaml
+# Example: Apply the Diabetic layout at night
+automation:
+  - alias: "Frixos Diabetic layout overnight"
+    trigger:
+      - platform: time
+        at: "22:00:00"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.<host>_layout_preset
+        data:
+          option: Diabetic
+
 # Example: Adjust brightness based on light level
 automation:
   - alias: "Frixos Auto Brightness"
@@ -232,13 +257,15 @@ When setting the scrolling message, you can use tokens that the device will repl
 
 ### Important Notes
 
-⚠️ **Device Restart**: Some settings trigger a device restart:
-- Latitude/Longitude
-- Timezone
+⚠️ **Layout engine vs Home Assistant**: The v67 layout editor is device-only. HA switches presets and keeps many legacy options for compatibility; those layout-adjacent entities are deprecated and may go away later. Prefer presets + the device UI for display design.
 
-When changing these settings, the device will restart and become temporarily unavailable.
+⚠️ **Layout-owned settings**: On v67+, the on-screen message text, message visibility/style, weather icon visibility, day/night fonts, color filters, and scroll delay live in the **screen layout**. This integration updates those via `/api/screen` when you change the corresponding entities.
 
-⚠️ **Polling Interval**: The integration polls the device every 60 seconds by default. This can be adjusted in `coordinator.py` if needed.
+⚠️ **Device Restart**: Network settings (hostname, WiFi, static IP) trigger a device restart. Latitude/longitude/timezone no longer force a reboot on current firmware.
+
+⚠️ **Polling Interval**: The integration polls the device every **5 minutes** by default. After writes it waits briefly before refreshing so the device can finish layout/integration work.
+
+⚠️ **Message updates & device stability**: Older integration versions posted only `{"p16": "..."}`. That updated a legacy NVS string but **not** `layout.scroll_text` (what the display actually renders), and it ran a **synchronous** `parse_integrations()` on the HTTP task while holding shared buffers. Repeated message sets from Home Assistant could therefore look like “nothing changed” while still stressing heap and eventually locking up the device. v1.1.0 writes messages through `/api/screen` instead (same path as the device web UI), serializes writes, retries HTTP 503 “busy”, and settles before polling again.
 
 ## Troubleshooting
 
@@ -268,12 +295,20 @@ When changing these settings, the device will restart and become temporarily una
 1. **Check device logs**: Some settings may require device restart
 2. **Check integration logs**: Look for errors in Home Assistant logs
 3. **Verify API response**: Check if `/api/settings` endpoint is accessible
+4. **Layout fields**: Message / fonts / filters / scroll delay need a successful `/api/screen` write (firmware with the layout engine)
 
 ### Entity States Show as "Unknown"
 
 1. **Wait for initial update**: The integration needs to fetch data on first load
 2. **Check device connectivity**: Ensure the device is reachable
 3. **Check coordinator logs**: Look for errors in the data update process
+
+### Device becomes slow or crashes after setting the message
+
+1. Update to integration **1.1.0+** (layout-safe message path)
+2. Avoid rapid-fire automations that rewrite the message every few seconds
+3. Prefer fewer `[HA:…]` tokens if free heap is low after boot
+4. Watch `sensor.*_free_heap` / `min_free_heap` while reproducing
 
 ## Development
 
@@ -288,10 +323,11 @@ custom_components/frixos/
 ├── entity.py            # Base entity class
 ├── manifest.json        # Integration metadata
 ├── icon.png             # Integration icon
+├── screen_layout.py     # Screen layout wire encode/decode (presets + message)
 ├── sensor.py            # Sensor entities
 ├── switch.py            # Switch entities
 ├── number.py            # Number entities
-├── select.py            # Select entities
+├── select.py            # Select entities (incl. layout presets)
 ├── text.py              # Text entities
 └── strings.json         # UI strings
 ```
@@ -300,9 +336,13 @@ custom_components/frixos/
 
 The integration uses the following endpoints:
 
-- `GET /api/settings` - Retrieve all device settings
-- `POST /api/settings` - Update device settings (JSON payload)
+- `GET /api/settings` - Retrieve device settings (`pXX`)
+- `POST /api/settings` - Update non-layout settings (JSON payload)
 - `GET /api/status` - Retrieve device status and sensor data
+- `GET /api/files` - List SPIFFS files (used to discover `.layout` presets)
+- `GET /{name}.layout` - Fetch a layout JSON preset from the device
+- `GET /api/screen` - Current screen layout (3912-byte binary wire format)
+- `POST /api/screen` - Apply a screen layout (same binary format the device web UI uses)
 
 ### Contributing
 
@@ -328,6 +368,25 @@ This integration is provided as-is for use with Frixos devices.
 
 ## Changelog
 
+### Version 1.1.2
+- Docs: layout engine is device-only; HA switches presets instead of rebuilding the editor
+- Docs: most legacy entities kept for compatibility but deprecated; may be removed later
+- Removed non-working X Offset, Y Offset, and Scroll Speed entities
+- Fix Layout Preset apply when the device serves `.layout` without a JSON Content-Type
+
+### Version 1.1.1
+- Version bump for release
+
+### Version 1.1.0
+- Layout Preset select (applies device `.layout` gallery via `/api/screen`)
+- Scrolling message, show message/weather, message colors/font, day/night fonts & filters, and scroll delay write through the layout engine
+- Avoid legacy `p16`-only message updates that could stress/crash the device
+- Serialized device writes, HTTP 503 busy retries, post-write settle delay
+- Dim Mode select (replaces Maintain Full Brightness switch); dim start/end hours
+- Nightscout URL, alternate weather duration
+- Message font sizes 8–16pt; PWM / glucose validity ranges aligned with current firmware
+- Docs: 5-minute poll interval; v67 layout notes
+
 ### Version 1.0.4
 - Updated PWM Frequency range to 10-78000 Hz
 - Updated Alternate Time Display Duration range to 0-300 seconds
@@ -347,4 +406,3 @@ This integration is provided as-is for use with Frixos devices.
 
 ### Version 1.0.3
 - minor bufixes
-

@@ -16,20 +16,21 @@ from .const import (
     PARAM_MSG_COLOR,
     PARAM_NIGHT_MSG_COLOR,
     PARAM_GLUCOSE_LOW,
+    PARAM_NIGHTSCOUT_URL,
     PASSWORD_PARAMS,
 )
 from .coordinator import FrixosDataUpdateCoordinator
 from .entity import FrixosEntity
 
-# Map parameter keys to their max lengths
 TEXT_MAX_LENGTHS = {
     PARAM_MESSAGE: 511,
     PARAM_LATITUDE: 12,
     PARAM_LONGITUDE: 12,
     PARAM_TIMEZONE: 64,
-    PARAM_MSG_COLOR: 7,  # Hex color format: #RRGGBB
-    PARAM_NIGHT_MSG_COLOR: 7,  # Hex color format: #RRGGBB
-    PARAM_GLUCOSE_LOW: 4,  # Glucose threshold (typically 40-200)
+    PARAM_MSG_COLOR: 7,
+    PARAM_NIGHT_MSG_COLOR: 7,
+    PARAM_GLUCOSE_LOW: 4,
+    PARAM_NIGHTSCOUT_URL: 100,
 }
 
 TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
@@ -75,6 +76,12 @@ TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
         icon="mdi:arrow-down-bold",
         entity_category=EntityCategory.CONFIG,
     ),
+    TextEntityDescription(
+        key=PARAM_NIGHTSCOUT_URL,
+        name="Nightscout URL",
+        icon="mdi:cloud",
+        entity_category=EntityCategory.CONFIG,
+    ),
 )
 
 
@@ -112,15 +119,21 @@ class FrixosText(FrixosEntity, TextEntity):
         )
         self.entity_description = description
         self._attr_native_min = 0
-        # Get max length from our mapping
         self._attr_native_max = TEXT_MAX_LENGTHS.get(description.key, 255)
-        # Set password mode for sensitive fields
         if description.key in PASSWORD_PARAMS:
             self._attr_mode = "password"
 
     @property
     def native_value(self) -> str | None:
         """Return the current value."""
+        if self.entity_description.key == PARAM_MESSAGE:
+            value_str = self.coordinator.get_scroll_message()
+            if value_str is None:
+                return None
+            if len(value_str) > 255:
+                return value_str[:252] + "..."
+            return value_str
+
         if not self.coordinator.data or not isinstance(self.coordinator.data, dict):
             return None
 
@@ -134,13 +147,8 @@ class FrixosText(FrixosEntity, TextEntity):
 
         value_str = str(value)
 
-        # Normalize color values when reading
         if self.entity_description.key in (PARAM_MSG_COLOR, PARAM_NIGHT_MSG_COLOR):
             value_str = self._normalize_color(value_str)
-
-        # Truncate message to 255 chars to comply with HA's state limit
-        if self.entity_description.key == PARAM_MESSAGE and len(value_str) > 255:
-            value_str = value_str[:252] + "..."
 
         return value_str
 
@@ -148,28 +156,33 @@ class FrixosText(FrixosEntity, TextEntity):
         """Normalize hex color value to #RRGGBB format."""
         if not value:
             return value
-        
-        # Remove any whitespace
-        value = value.strip()
-        
-        # Remove # if present (we'll add it back)
-        value = value.lstrip("#")
-        
-        # Handle 3-digit hex (e.g., "F00" -> "FF0000")
+
+        value = value.strip().lstrip("#")
+
         if len(value) == 3:
             value = "".join(c * 2 for c in value)
-        
-        # Ensure we have 6 hex digits
+
         if len(value) == 6 and all(c in "0123456789ABCDEFabcdef" for c in value):
             return f"#{value.upper()}"
-        
-        # If it doesn't match hex format, return as-is (let device handle validation)
+
         return value if value.startswith("#") else f"#{value}"
 
     async def async_set_value(self, value: str) -> None:
         """Update the current value."""
-        # Normalize color values to standard hex format
-        if self.entity_description.key in (PARAM_MSG_COLOR, PARAM_NIGHT_MSG_COLOR):
+        key = self.entity_description.key
+
+        if key == PARAM_MESSAGE:
+            await self.coordinator.async_set_scroll_message(value)
+            return
+
+        if key == PARAM_MSG_COLOR:
             value = self._normalize_color(value)
-        
-        await self.coordinator.async_set_setting(self.entity_description.key, value)
+            await self.coordinator.async_set_message_color(day=value)
+            return
+
+        if key == PARAM_NIGHT_MSG_COLOR:
+            value = self._normalize_color(value)
+            await self.coordinator.async_set_message_color(night=value)
+            return
+
+        await self.coordinator.async_set_setting(key, value)
