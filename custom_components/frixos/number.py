@@ -9,8 +9,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     DOMAIN,
-    PARAM_X_OFFSET,
-    PARAM_Y_OFFSET,
     PARAM_SCROLL_DELAY,
     PARAM_LUX_SENSITIVITY,
     PARAM_LUX_THRESHOLD,
@@ -20,42 +18,26 @@ from .const import (
     PARAM_HA_REFRESH_MINS,
     PARAM_STOCK_REFRESH_MINS,
     PARAM_DEXCOM_REFRESH,
-    PARAM_SCROLL_SPEED,
     PARAM_WIFI_START,
     PARAM_WIFI_END,
     PARAM_GLUCOSE_VALIDITY_DURATION,
     PARAM_SEC_TIME,
     PARAM_SEC_CGM,
     PARAM_GLUCOSE_HIGH,
+    PARAM_DIM_START,
+    PARAM_DIM_END,
+    PARAM_SEC_WEATHER,
 )
 from .coordinator import FrixosDataUpdateCoordinator
 from .entity import FrixosEntity
 
 NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
     NumberEntityDescription(
-        key=PARAM_X_OFFSET,
-        name="X Offset",
-        icon="mdi:arrow-left-right",
-        native_min_value=0,
-        native_max_value=160,
-        native_step=1,
-        entity_category=EntityCategory.CONFIG,
-    ),
-    NumberEntityDescription(
-        key=PARAM_Y_OFFSET,
-        name="Y Offset",
-        icon="mdi:arrow-up-down",
-        native_min_value=0,
-        native_max_value=160,
-        native_step=1,
-        entity_category=EntityCategory.CONFIG,
-    ),
-    NumberEntityDescription(
         key=PARAM_SCROLL_DELAY,
         name="Scroll Delay",
         icon="mdi:timer-outline",
         native_min_value=30,
-        native_max_value=500,
+        native_max_value=255,
         native_step=1,
         native_unit_of_measurement="ms",
         entity_category=EntityCategory.CONFIG,
@@ -104,8 +86,8 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         key=PARAM_PWM_FREQUENCY,
         name="PWM Frequency",
         icon="mdi:sine-wave",
-        native_min_value=10,
-        native_max_value=78000,
+        native_min_value=60,
+        native_max_value=50000,
         native_step=1,
         native_unit_of_measurement="Hz",
         entity_category=EntityCategory.CONFIG,
@@ -150,15 +132,6 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         entity_category=EntityCategory.CONFIG,
     ),
     NumberEntityDescription(
-        key=PARAM_SCROLL_SPEED,
-        name="Scroll Speed",
-        icon="mdi:speedometer",
-        native_min_value=1,
-        native_max_value=100,
-        native_step=1,
-        entity_category=EntityCategory.CONFIG,
-    ),
-    NumberEntityDescription(
         key=PARAM_WIFI_START,
         name="WiFi Active Hours Start",
         icon="mdi:clock-time-one",
@@ -182,8 +155,8 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         key=PARAM_GLUCOSE_VALIDITY_DURATION,
         name="Glucose Data Validity Duration",
         icon="mdi:timer",
-        native_min_value=1,
-        native_max_value=1440,
+        native_min_value=10,
+        native_max_value=360,
         native_step=1,
         native_unit_of_measurement="min",
         entity_category=EntityCategory.CONFIG,
@@ -193,7 +166,7 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         name="Alternate Time Display Duration",
         icon="mdi:clock-outline",
         native_min_value=0,
-        native_max_value=300,
+        native_max_value=120,
         native_step=1,
         native_unit_of_measurement="s",
         entity_category=EntityCategory.CONFIG,
@@ -203,7 +176,17 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         name="Alternate CGM Display Duration",
         icon="mdi:medical-bag",
         native_min_value=0,
-        native_max_value=300,
+        native_max_value=120,
+        native_step=1,
+        native_unit_of_measurement="s",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_SEC_WEATHER,
+        name="Alternate Weather Display Duration",
+        icon="mdi:weather-partly-cloudy",
+        native_min_value=0,
+        native_max_value=120,
         native_step=1,
         native_unit_of_measurement="s",
         entity_category=EntityCategory.CONFIG,
@@ -212,10 +195,30 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         key=PARAM_GLUCOSE_HIGH,
         name="High Glucose Threshold",
         icon="mdi:arrow-up-bold",
-        native_min_value=70,
+        native_min_value=1,
         native_max_value=400,
         native_step=1,
         native_unit_of_measurement="mg/dL",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_DIM_START,
+        name="Dim Start Hour",
+        icon="mdi:weather-night",
+        native_min_value=0,
+        native_max_value=23,
+        native_step=1,
+        native_unit_of_measurement="h",
+        entity_category=EntityCategory.CONFIG,
+    ),
+    NumberEntityDescription(
+        key=PARAM_DIM_END,
+        name="Dim End Hour",
+        icon="mdi:weather-sunset-up",
+        native_min_value=0,
+        native_max_value=23,
+        native_step=1,
+        native_unit_of_measurement="h",
         entity_category=EntityCategory.CONFIG,
     ),
 )
@@ -286,6 +289,10 @@ class FrixosNumber(FrixosEntity, NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
         param_key = self.entity_description.key
+
+        if param_key == PARAM_SCROLL_DELAY:
+            await self.coordinator.async_set_layout_meta(scroll_delay=int(value))
+            return
 
         # Handle brightness LED array
         if param_key.startswith(f"{PARAM_BRIGHTNESS_LED}_"):

@@ -15,7 +15,6 @@ from .const import (
     PARAM_QUIET_WEATHER,
     PARAM_SHOW_GRID,
     PARAM_MIRRORING,
-    PARAM_DIM_DISABLE,
     PARAM_SHOW_LEADING_ZERO,
     PARAM_UPDATE_FIRMWARE,
     PARAM_DOTS_BREATHE,
@@ -58,12 +57,6 @@ SWITCH_DESCRIPTIONS: tuple[SwitchEntityDescription, ...] = (
         key=PARAM_MIRRORING,
         name="Mirror Display",
         icon="mdi:mirror",
-        entity_category=EntityCategory.CONFIG,
-    ),
-    SwitchEntityDescription(
-        key=PARAM_DIM_DISABLE,
-        name="Maintain Full Brightness",
-        icon="mdi:brightness-7",
         entity_category=EntityCategory.CONFIG,
     ),
     SwitchEntityDescription(
@@ -126,18 +119,28 @@ class FrixosSwitch(FrixosEntity, SwitchEntity):
         """Return if the switch is turned on."""
         if not self.coordinator.data or not isinstance(self.coordinator.data, dict):
             return None
-        
+
         settings = self.coordinator.data.get("settings", {})
         if not isinstance(settings, dict):
             return None
-        
+
         value = settings.get(self.entity_description.key)
         return bool(value) if value is not None else None
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
-        await self.coordinator.async_set_setting(self.entity_description.key, 1)
+        await self._async_set(True)
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the switch off."""
-        await self.coordinator.async_set_setting(self.entity_description.key, 0)
+        await self._async_set(False)
+
+    async def _async_set(self, enabled: bool) -> None:
+        key = self.entity_description.key
+        if key == PARAM_QUIET_SCROLL:
+            await self.coordinator.async_set_message_enabled(enabled)
+            return
+        if key == PARAM_QUIET_WEATHER:
+            await self.coordinator.async_set_weather_enabled(enabled)
+            return
+        await self.coordinator.async_set_setting(key, 1 if enabled else 0)

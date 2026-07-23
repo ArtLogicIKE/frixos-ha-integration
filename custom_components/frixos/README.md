@@ -34,8 +34,6 @@ This custom integration allows you to control and monitor your Frixos device dir
 - Dark Theme
 
 ### Number Inputs
-- X Offset (0-160)
-- Y Offset (0-160)
 - Scroll Delay (30-500 ms)
 - Light Sensitivity (0-50 lux)
 - Day Threshold (0-500 lux)

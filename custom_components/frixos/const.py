@@ -9,6 +9,11 @@ DEFAULT_PORT: Final = 80
 # API endpoints
 ENDPOINT_SETTINGS: Final = "/api/settings"
 ENDPOINT_STATUS: Final = "/api/status"
+ENDPOINT_SCREEN: Final = "/api/screen"
+ENDPOINT_FILES: Final = "/api/files"
+
+# Non-pXX select keys
+SELECT_LAYOUT_PRESET: Final = "layout_preset"
 
 # Parameter field mappings (API uses pXX format)
 PARAM_HOSTNAME = "p00"
@@ -64,6 +69,17 @@ PARAM_DOTS_BREATHE = "p50"
 PARAM_GLUCOSE_HIGH = "p51"
 PARAM_GLUCOSE_LOW = "p52"
 PARAM_CGM_UNIT = "p53"
+PARAM_NIGHTSCOUT_URL = "p54"
+PARAM_DIM_START = "p55"
+PARAM_DIM_END = "p56"
+PARAM_SEC_WEATHER = "p57"
+PARAM_DIGIT_SCHEDULE = "p58"
+PARAM_AUX_SCHEDULE = "p59"
+PARAM_STATIC_IP = "p60"
+PARAM_STATIC_GW = "p61"
+PARAM_STATIC_NM = "p62"
+PARAM_STATIC_DNS = "p63"
+PARAM_DARK_THEME = "p40"
 
 # Font options
 FONT_OPTIONS = [
@@ -98,11 +114,20 @@ ROTATION_OPTIONS = {
     3: "270°",
 }
 
-# Message font options
+# Message font options (layout message widget / legacy p13)
 MSG_FONT_OPTIONS = {
     0: "8pt",
     1: "10pt",
     2: "12pt",
+    3: "14pt",
+    4: "16pt",
+}
+
+# Dim mode (p22): brightness curve / full / time-of-day
+DIM_MODE_OPTIONS = {
+    0: "Auto brightness",
+    1: "Full brightness",
+    2: "Time of day",
 }
 
 # Language options
@@ -144,14 +169,15 @@ CGM_UNIT_OPTIONS = {
     1: "mmol/L",
 }
 
-# Settings that trigger device restart
+# Settings that trigger device restart (network only on current firmware)
 RESTART_REQUIRED_PARAMS = {
     PARAM_HOSTNAME,
     PARAM_WIFI_SSID,
     PARAM_WIFI_PASS,
-    PARAM_LATITUDE,
-    PARAM_LONGITUDE,
-    PARAM_TIMEZONE,
+    PARAM_STATIC_IP,
+    PARAM_STATIC_GW,
+    PARAM_STATIC_NM,
+    PARAM_STATIC_DNS,
 }
 
 # Password fields (should be masked in config flow)
@@ -160,17 +186,17 @@ PASSWORD_PARAMS = {
 }
 
 # Map parameters to their page number and order (format: page.order)
-# Page 1 = Basic, Page 2 = Advanced, Page 3 = Integration
+# Page 1 = Basic, Page 2 = Layout/Display, Page 3 = Integration
 PARAM_ORDER = {
     # Page 1: Basic Settings
     PARAM_FAHRENHEIT: "1.01",
     PARAM_HOUR12: "1.02",
-    PARAM_SCROLL_SPEED: "1.03",
+    # 1.03 was Scroll Speed (removed)
     PARAM_UPDATE_FIRMWARE: "1.04",
     PARAM_LANGUAGE: "1.05",
-    # Page 2: Advanced Settings
-    PARAM_X_OFFSET: "2.01",
-    PARAM_Y_OFFSET: "2.02",
+    SELECT_LAYOUT_PRESET: "1.06",
+    # Page 2: Layout / Display Settings
+    # 2.01 / 2.02 were X/Y Offset (removed)
     PARAM_ROTATION: "2.03",
     PARAM_DAY_FONT: "2.04",
     PARAM_NIGHT_FONT: "2.05",
@@ -198,6 +224,8 @@ PARAM_ORDER = {
     PARAM_WIFI_START: "2.27",
     PARAM_WIFI_END: "2.28",
     PARAM_DOTS_BREATHE: "2.29",
+    PARAM_DIM_START: "2.30",
+    PARAM_DIM_END: "2.31",
     # Page 3: Integration Settings
     PARAM_HA_REFRESH_MINS: "3.01",
     PARAM_STOCK_REFRESH_MINS: "3.02",
@@ -210,4 +238,6 @@ PARAM_ORDER = {
     PARAM_GLUCOSE_HIGH: "3.09",
     PARAM_GLUCOSE_LOW: "3.10",
     PARAM_CGM_UNIT: "3.11",
+    PARAM_NIGHTSCOUT_URL: "3.12",
+    PARAM_SEC_WEATHER: "3.13",
 }
