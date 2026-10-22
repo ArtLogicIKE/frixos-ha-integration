@@ -265,6 +265,16 @@ class FrixosNumber(FrixosEntity, NumberEntity):
         self.entity_description = description
 
     @property
+    def available(self) -> bool:
+        """Display schedule durations exist only up to firmware 72 (text widgets replaced them)."""
+        if self.entity_description.key in (PARAM_SEC_TIME, PARAM_SEC_CGM, PARAM_SEC_WEATHER):
+            data = self.coordinator.data if isinstance(self.coordinator.data, dict) else {}
+            settings = data.get("settings") or {}
+            if isinstance(settings, dict) and settings and self.entity_description.key not in settings:
+                return False
+        return super().available
+
+    @property
     def native_value(self) -> float | None:
         """Return the current value."""
         if not self.coordinator.data or not isinstance(self.coordinator.data, dict):

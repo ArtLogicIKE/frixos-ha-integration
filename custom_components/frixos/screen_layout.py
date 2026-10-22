@@ -10,6 +10,8 @@ import struct
 from copy import deepcopy
 from typing import Any
 
+from . import screen_layout_v12 as v12
+
 SCREEN_LAYOUT_VERSION = 10
 SCREEN_BIN_MAGIC = 0x4653584C
 SCREEN_BIN_FORMAT = 1
@@ -200,7 +202,9 @@ def prepare_layout(layout: dict[str, Any]) -> dict[str, Any]:
 
 
 def encode_screen_layout_binary(layout: dict[str, Any]) -> bytes:
-    """Encode a prepared layout dict to the 3912-byte wire format."""
+    """Encode a layout dict: patched text-widget wire, or the 3912-byte format of older firmware."""
+    if "_wire" in layout:
+        return v12.encode(layout)
     layout = prepare_layout(layout)
     buf = bytearray(SCREEN_BIN_WIRE_SIZE)
 
@@ -257,8 +261,26 @@ def encode_screen_layout_binary(layout: dict[str, Any]) -> bytes:
     return bytes(buf)
 
 
+def is_supported_screen_wire(data: bytes) -> bool:
+    """3912-byte layouts (firmware 70-72) or the text-widget wire (later firmware)."""
+    return len(data) == SCREEN_BIN_WIRE_SIZE or v12.is_v12_wire(data)
+
+
+def encode_layout_preset(layout_json: dict[str, Any], device_layout: dict[str, Any] | None) -> tuple[bytes, dict[str, Any]]:
+    """Encode a .layout file for the device's wire format; returns (body, decoded layout)."""
+    if device_layout is not None and "_wire" in device_layout:
+        if not v12.is_v12_layout_json(layout_json):
+            raise ValueError("layout file predates text widgets; open and save it in the screen editor first")
+        body = v12.encode_layout_json(layout_json, _write_graph_cfg)
+        return body, v12.decode(body)
+    layout = prepare_layout(layout_json)
+    return encode_screen_layout_binary(layout), layout
+
+
 def decode_screen_layout_binary(data: bytes) -> dict[str, Any]:
-    """Decode a 3912-byte wire blob into a layout dict."""
+    """Decode a wire blob (either format) into a layout dict."""
+    if v12.is_v12_wire(data):
+        return v12.decode(data)
     if len(data) != SCREEN_BIN_WIRE_SIZE:
         raise ValueError(f"invalid screen wire size: {len(data)}")
     magic = struct.unpack_from("<I", data, 0)[0]
@@ -450,6 +472,9 @@ def _read_profile(data: bytes, offset: int) -> tuple[dict[str, Any], int]:
 
 def set_scroll_text(layout: dict[str, Any], text: str) -> None:
     """Set day and night scroll_text (display source of truth)."""
+    if "_wire" in layout:
+        v12.set_scroll_text(layout, text)
+        return
     text = text[: SCREEN_BIN_SCROLL_LEN - 1]
     for mode in ("day", "night"):
         profile = layout.setdefault("profiles", {}).setdefault(mode, {})
@@ -458,6 +483,9 @@ def set_scroll_text(layout: dict[str, Any], text: str) -> None:
 
 def set_widget_enabled(layout: dict[str, Any], elem_id: str, enabled: bool) -> None:
     """Enable/disable a widget in both day and night profiles."""
+    if "_wire" in layout:
+        v12.set_widget_enabled(layout, elem_id, enabled)
+        return
     for mode in ("day", "night"):
         profile = layout.setdefault("profiles", {}).setdefault(mode, {})
         elem = _ensure_element(profile, elem_id)
@@ -472,6 +500,9 @@ def set_message_style(
     font: int | None = None,
 ) -> None:
     """Update message widget style in day and/or night profiles."""
+    if "_wire" in layout:
+        v12.set_message_style(layout, color=color, night_color=night_color, font=font)
+        return
     for mode, color_value in (("day", color), ("night", night_color)):
         if color_value is None and font is None:
             continue

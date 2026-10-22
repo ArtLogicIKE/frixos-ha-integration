@@ -16,12 +16,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
 from .screen_layout import (
-    SCREEN_BIN_WIRE_SIZE,
     decode_screen_layout_binary,
+    encode_layout_preset,
     encode_screen_layout_binary,
     get_scroll_text,
+    is_supported_screen_wire,
     layout_display_name,
-    prepare_layout,
     set_message_style,
     set_scroll_text,
     set_widget_enabled,
@@ -105,6 +105,10 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                     await self._fetch_screen_layout()
                 except Exception as err:  # noqa: BLE001 - optional cache warm
                     _LOGGER.debug("Could not warm screen layout cache: %s", err)
+            # Firmware with text widgets no longer reports the message settings (p06, p12,
+            # p13, p15); fill only the missing ones from the layout.
+            if self._layout_cache is not None and isinstance(settings_data, dict):
+                _mirror_layout(settings_data, self._layout_cache, only_missing=True)
 
             return {
                 "settings": settings_data or {},
@@ -201,8 +205,8 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                     _LOGGER.error("Layout file %s is invalid", filename)
                     return False
 
-                layout = prepare_layout(data)
-                body = encode_screen_layout_binary(layout)
+                device_layout = self._layout_cache or await self._fetch_screen_layout()
+                body, layout = encode_layout_preset(data, device_layout)
                 if not await self._post_screen_binary(body):
                     return False
 
@@ -318,12 +322,8 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Failed to fetch screen layout: HTTP %s", response.status)
                 return None
             data = await response.read()
-        if len(data) != SCREEN_BIN_WIRE_SIZE:
-            _LOGGER.error(
-                "Unexpected screen layout size %s (expected %s)",
-                len(data),
-                SCREEN_BIN_WIRE_SIZE,
-            )
+        if not is_supported_screen_wire(data):
+            _LOGGER.error("Unsupported screen layout (%s bytes); update the integration", len(data))
             return None
         layout = decode_screen_layout_binary(data)
         self._layout_cache = layout
@@ -331,7 +331,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _post_screen_binary(self, body: bytes) -> bool:
         """POST encoded layout to /api/screen with busy retries."""
-        if len(body) != SCREEN_BIN_WIRE_SIZE:
+        if not is_supported_screen_wire(body):
             _LOGGER.error("Refusing to POST screen layout with size %s", len(body))
             return False
 
@@ -408,39 +408,48 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         settings = self.data.get("settings")
         if not isinstance(settings, dict):
             return
+        _mirror_layout(settings, layout)
 
-        scroll = get_scroll_text(layout)
-        if scroll is not None:
-            settings["p16"] = scroll
-        if "scroll_delay" in layout:
-            settings["p14"] = layout["scroll_delay"]
-        if "day_font" in layout:
-            settings["p04"] = layout["day_font"]
-        if "night_font" in layout:
-            settings["p05"] = layout["night_font"]
-        if "day_color_filter" in layout:
-            settings["p10"] = layout["day_color_filter"]
-        if "night_color_filter" in layout:
-            settings["p11"] = layout["night_color_filter"]
 
-        day = (layout.get("profiles") or {}).get("day") or {}
-        for elem in day.get("elements") or []:
-            if not elem:
-                continue
-            if elem.get("id") == "message":
-                settings["p06"] = 1 if elem.get("enabled") else 0
-                opts = elem.get("options") or {}
-                if "color" in opts:
-                    settings["p12"] = opts["color"]
-                if "font" in opts:
-                    settings["p13"] = opts["font"]
-            elif elem.get("id") == "weather":
-                settings["p07"] = 1 if elem.get("enabled") else 0
+def _mirror_layout(settings: dict[str, Any], layout: dict[str, Any], *, only_missing: bool = False) -> None:
+    """Copy layout-owned values into the settings dict the entities read."""
 
-        night = (layout.get("profiles") or {}).get("night") or {}
-        for elem in night.get("elements") or []:
-            if elem and elem.get("id") == "message":
-                opts = elem.get("options") or {}
-                if "color" in opts:
-                    settings["p15"] = opts["color"]
-                break
+    def put(key: str, value: Any) -> None:
+        if not only_missing or key not in settings:
+            settings[key] = value
+
+    scroll = get_scroll_text(layout)
+    if scroll is not None:
+        put("p16", scroll)
+    if "scroll_delay" in layout:
+        put("p14", layout["scroll_delay"])
+    if "day_font" in layout:
+        put("p04", layout["day_font"])
+    if "night_font" in layout:
+        put("p05", layout["night_font"])
+    if "day_color_filter" in layout:
+        put("p10", layout["day_color_filter"])
+    if "night_color_filter" in layout:
+        put("p11", layout["night_color_filter"])
+
+    day = (layout.get("profiles") or {}).get("day") or {}
+    for elem in day.get("elements") or []:
+        if not elem:
+            continue
+        if elem.get("id") == "message":
+            put("p06", 1 if elem.get("enabled") else 0)
+            opts = elem.get("options") or {}
+            if "color" in opts:
+                put("p12", opts["color"])
+            if "font" in opts:
+                put("p13", opts["font"])
+        elif elem.get("id") == "weather":
+            put("p07", 1 if elem.get("enabled") else 0)
+
+    night = (layout.get("profiles") or {}).get("night") or {}
+    for elem in night.get("elements") or []:
+        if elem and elem.get("id") == "message":
+            opts = elem.get("options") or {}
+            if "color" in opts:
+                put("p15", opts["color"])
+            break
