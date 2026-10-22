@@ -24,6 +24,8 @@ Instead, this integration:
 
 Design the layout on the device web UI; use Home Assistant to apply a saved preset and to tweak settings that still make sense from automations.
 
+**Text-widget firmware (after FW72):** the clock, labels and scrolling message became configurable text widgets and the layout wire grew to 7170 bytes. The integration detects the format the device sends and keeps both working. On that firmware the message switches, colours and font size act on the layout's scrolling text widget (one is added if the layout has none), presets must have been saved by the text-widget editor (re-save older custom `.layout` files on the device), and the **alternate display durations** are unavailable because the display schedule became rotating widget contents.
+
 **Deprecated options:** Many of the legacy switches/numbers/selects/texts mirror the pre–layout-engine settings model. They are kept for compatibility but are **deprecated by the layout system** and may be removed in a future version. Prefer editing layouts on the device (and switching presets from HA) for anything about on-screen placement and styling.
 
 **Removed options:** Some entities no longer worked under the layout engine and have been dropped, including **X Offset**, **Y Offset**, and **Scroll Speed** (widget positions and scrolling behavior live in the layout now). Entity order prefixes for remaining options are unchanged, so existing automations keep the same numeric labels.
