@@ -74,6 +74,7 @@ TEXT_DESCRIPTIONS: tuple[TextEntityDescription, ...] = (
         key=PARAM_GLUCOSE_LOW,
         name="Low Glucose Threshold",
         icon="mdi:arrow-down-bold",
+        pattern=r"^[0-9]{1,3}$",
         entity_category=EntityCategory.CONFIG,
     ),
     TextEntityDescription(
@@ -183,6 +184,11 @@ class FrixosText(FrixosEntity, TextEntity):
         if key == PARAM_NIGHT_MSG_COLOR:
             value = self._normalize_color(value)
             await self.coordinator.async_set_message_color(night=value)
+            return
+
+        if key == PARAM_GLUCOSE_LOW:
+            # The device only accepts a JSON number for p52; a string is ignored.
+            await self.coordinator.async_set_setting(key, int(value))
             return
 
         await self.coordinator.async_set_setting(key, value)

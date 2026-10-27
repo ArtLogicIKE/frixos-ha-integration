@@ -262,7 +262,7 @@ def encode_screen_layout_binary(layout: dict[str, Any]) -> bytes:
 
 
 def is_supported_screen_wire(data: bytes) -> bool:
-    """3912-byte layouts (firmware 70-72) or the text-widget wire (later firmware)."""
+    """3912-byte layouts (firmware 70-73) or the text-widget wire (later firmware)."""
     return len(data) == SCREEN_BIN_WIRE_SIZE or v12.is_v12_wire(data)
 
 
@@ -442,6 +442,9 @@ def _read_profile(data: bytes, offset: int) -> tuple[dict[str, Any], int]:
                 "color": _rgb_to_hex(widget["color_r"], widget["color_g"], widget["color_b"]),
                 "bg_color": _rgb_to_hex(widget["bg_r"], widget["bg_g"], widget["bg_b"]),
             }
+        elif elem_id == "ampm":
+            # FW73: the font byte picks the image (0 = theme sun/moon, 1 = AM/PM text).
+            elem["options"] = {"font": widget["font"]}
         profile["elements"].append(elem)
 
     profile["scroll_text"] = _read_fixed_string(data, offset, SCREEN_BIN_SCROLL_LEN)

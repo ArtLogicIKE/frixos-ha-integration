@@ -6,7 +6,7 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 
 ## Firmware requirement (FW70)
 
-Integration **1.1.2** targets current Frixos firmware (**fwversion ≥ 70**, marketing versions **2.52+**). FW70 migrated the device data partition from SPIFFS to **LittleFS** (still mounted at `/spiffs`), which unwedged OTA file updates and enables a reliable nested file listing via `/api/files`.
+Integration **1.3.0** targets current Frixos firmware (**fwversion ≥ 70**, marketing versions **2.52+**) and is checked against **FW73 (2.80)**. FW70 migrated the device data partition from SPIFFS to **LittleFS** (still mounted at `/spiffs`), which unwedged OTA file updates and enables a reliable nested file listing via `/api/files`.
 
 The **screen layout engine** (drag-and-drop widgets, day/night profiles, graphs, icons) landed earlier (around FW67). This HACS release assumes that stack is present **and** that you are on FW70+, so layout presets, `/api/screen` writes, and file discovery behave as on current devices.
 
@@ -24,7 +24,7 @@ Instead, this integration:
 
 Design the layout on the device web UI; use Home Assistant to apply a saved preset and to tweak settings that still make sense from automations.
 
-**Text-widget firmware (after FW72):** the clock, labels and scrolling message became configurable text widgets and the layout wire grew to 7170 bytes. The integration detects the format the device sends and keeps both working. On that firmware the message switches, colours and font size act on the layout's scrolling text widget (one is added if the layout has none), presets must have been saved by the text-widget editor (re-save older custom `.layout` files on the device), and the **alternate display durations** are unavailable because the display schedule became rotating widget contents.
+**Text-widget firmware (after FW73; FW73 itself still uses the 3912-byte layout):** the clock, labels and scrolling message became configurable text widgets and the layout wire grew to 7170 bytes. The integration detects the format the device sends and keeps both working. On that firmware the message switches, colours and font size act on the layout's scrolling text widget (one is added if the layout has none), presets must have been saved by the text-widget editor (re-save older custom `.layout` files on the device), and the **alternate display durations** are unavailable because the display schedule became rotating widget contents.
 
 **Deprecated options:** Many of the legacy switches/numbers/selects/texts mirror the pre–layout-engine settings model. They are kept for compatibility but are **deprecated by the layout system** and may be removed in a future version. Prefer editing layouts on the device (and switching presets from HA) for anything about on-screen placement and styling.
 
@@ -38,7 +38,7 @@ Compared with the previous HACS generation (FW62-era entities), this release add
 |--------|------|--------|
 | **Layout Preset** | Select | Applies a root `.layout` file from the device gallery via `/api/screen` (same path as the device UI). |
 | **Dim Mode** | Select | Replaces the old “Maintain Full Brightness” switch. Options: **Auto brightness**, **Full brightness**, **Time of day**. |
-| **Dim Start Hour** / **Dim End Hour** | Number (0–23) | Used when Dim Mode is **Time of day**. |
+| **Dim Start Hour** / **Dim End Hour** | Number (0–23) | Used when Dim Mode is **Time of day**. The device keeps minutes; HA shows hours (22.5 = 22:30). |
 | **Nightscout URL** | Text | Nightscout base URL for glucose (alongside Dexcom / Libre). |
 | **Alternate Weather Display Duration** | Number (seconds) | How long the alternate weather digit mode runs (with Time / CGM alternates). |
 | **Message Font Size** | Select | Now **8 / 10 / 12 / 14 / 16 pt** (layout message widget). |
@@ -87,13 +87,13 @@ All Frixos projection clocks (https://buyfrixos.com) running **firmware 70 or la
 ### Number Inputs (Configuration)
 - Scroll Delay (30–255 ms, layout-owned; deprecated as a standalone setting)
 - Light Sensitivity / Day Threshold
-- LED Brightness Day / Night
+- LED Brightness Day / Night (0–100%)
 - PWM Frequency (60–50000 Hz)
 - Max Power
-- WiFi Active Hours Start / End
+- WiFi Active Hours Start / End (hours; the device keeps minutes, so 22.5 = 22:30)
 - Home Assistant / Stock / Dexcom refresh intervals
 - Glucose Data Validity Duration
-- Alternate Time / CGM / Weather display durations
+- Alternate Time / CGM / Weather display durations (edit the device's display schedule, p58; 0 removes the CGM or weather slot)
 - High Glucose Threshold
 - Dim Start Hour / Dim End Hour (used when Dim Mode is “Time of day”)
 
@@ -127,7 +127,8 @@ The following settings are available on the Frixos device but are **not currentl
 - **WiFi SSID** - WiFi network name (triggers device restart when changed)
 - **WiFi Password** - WiFi network password (password field, triggers device restart when changed)
 - **Static IP / Gateway / Netmask / DNS** - Network addressing (triggers restart)
-- **Digit / aux schedules (p58/p59)** - Complex JSON schedules; edit on the device UI
+- **Digit / aux schedules (p58/p59)** - Complex JSON schedules; edit on the device UI (HA only changes the Time / CGM / Weather durations)
+- **Weather Underground station / key / refresh (p64–p66)** and the **scroll engine** switch (p67) - device UI only
 
 ### Layout editor (device web UI only)
 Full widget placement, graphs, static text slots, and user icons are edited on the device. Save layouts there, then use **Layout Preset** in Home Assistant to switch between them. X/Y offsets and scroll speed are no longer exposed in HA for the same reason.
@@ -402,6 +403,16 @@ For issues or questions:
 This integration is provided as-is for use with Frixos devices.
 
 ## Changelog
+
+### Version 1.3.0
+- Checked against firmware 73 (2.80); requires Home Assistant 2024.11 or later
+- Text-widget firmware (after FW73): reads and writes the 7170-byte layout wire; the 3912-byte wire (FW70–73) is unchanged
+- Fix WiFi Active Hours and Dim Start/End: the device stores minutes from midnight, so values are now converted to and from hours
+- Fix Alternate Time / CGM / Weather durations: they now edit the display schedule (p58) that the device uses, instead of legacy values it ignores
+- Fix Low Glucose Threshold: sent as a number, which the device requires
+- Keep the FW73 AM/PM "show as text" choice when HA writes the layout (message, colours, fonts, filters, scroll delay); it was reset to sun/moon
+- LED Brightness Day / Night accept 0%
+- Add `translations/en.json` so the setup form shows its labels
 
 ### Version 1.1.2
 - Requires **firmware 70 (FW70)+**

@@ -1,6 +1,8 @@
 """Number platform for Frixos integration."""
 from __future__ import annotations
 
+import json
+
 from homeassistant.components.number import NumberEntity, NumberEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -27,9 +29,47 @@ from .const import (
     PARAM_DIM_START,
     PARAM_DIM_END,
     PARAM_SEC_WEATHER,
+    PARAM_DIGIT_SCHEDULE,
 )
 from .coordinator import FrixosDataUpdateCoordinator
 from .entity import FrixosEntity
+
+# The device stores these as minutes from midnight (0-1439); the entities show hours.
+MINUTE_OF_DAY_PARAMS = {PARAM_WIFI_START, PARAM_WIFI_END, PARAM_DIM_START, PARAM_DIM_END}
+
+# The digit display rotation is the p58 schedule (slot "t" = type, "d" = seconds);
+# the legacy p48/p49/p57 values are only read when the device migrates an empty schedule.
+SCHEDULE_SLOT_TYPES = {PARAM_SEC_TIME: 0, PARAM_SEC_CGM: 1, PARAM_SEC_WEATHER: 2}
+MAX_SCHEDULE_SLOTS = 8
+
+
+def _schedule_slots(settings: dict) -> list | None:
+    """Return the p58 display schedule as a list, or None when the device has none."""
+    raw = settings.get(PARAM_DIGIT_SCHEDULE)
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        slots = json.loads(raw)
+    except ValueError:
+        return None
+    return slots if isinstance(slots, list) else None
+
+
+def _with_slot_duration(slots: list, slot_type: int, seconds: int) -> list:
+    """Set every slot of a type to the duration; 0 removes them, a missing one is appended."""
+    out = []
+    found = False
+    for slot in slots:
+        if isinstance(slot, dict) and slot.get("t") == slot_type:
+            found = True
+            if seconds <= 0:
+                continue
+            slot = {**slot, "d": seconds}
+        out.append(slot)
+    if not found and seconds > 0 and len(out) < MAX_SCHEDULE_SLOTS:
+        out.append({"t": slot_type, "d": seconds})
+    return out
+
 
 NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
     NumberEntityDescription(
@@ -66,7 +106,7 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         key=f"{PARAM_BRIGHTNESS_LED}_0",
         name="LED Brightness Day",
         icon="mdi:led-on",
-        native_min_value=1,
+        native_min_value=0,
         native_max_value=100,
         native_step=1,
         native_unit_of_measurement="%",
@@ -76,7 +116,7 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         key=f"{PARAM_BRIGHTNESS_LED}_1",
         name="LED Brightness Night",
         icon="mdi:led-on",
-        native_min_value=1,
+        native_min_value=0,
         native_max_value=100,
         native_step=1,
         native_unit_of_measurement="%",
@@ -165,7 +205,7 @@ NUMBER_DESCRIPTIONS: tuple[NumberEntityDescription, ...] = (
         key=PARAM_SEC_TIME,
         name="Alternate Time Display Duration",
         icon="mdi:clock-outline",
-        native_min_value=0,
+        native_min_value=1,
         native_max_value=120,
         native_step=1,
         native_unit_of_measurement="s",
@@ -266,7 +306,7 @@ class FrixosNumber(FrixosEntity, NumberEntity):
 
     @property
     def available(self) -> bool:
-        """Display schedule durations exist only up to firmware 72 (text widgets replaced them)."""
+        """Display schedule durations exist only up to firmware 73 (text widgets replaced them)."""
         if self.entity_description.key in (PARAM_SEC_TIME, PARAM_SEC_CGM, PARAM_SEC_WEATHER):
             data = self.coordinator.data if isinstance(self.coordinator.data, dict) else {}
             settings = data.get("settings") or {}
@@ -292,8 +332,20 @@ class FrixosNumber(FrixosEntity, NumberEntity):
                 if index < len(brightness_array):
                     return float(brightness_array[index])
             return None
-        
-        value = settings.get(self.entity_description.key)
+
+        key = self.entity_description.key
+        if key in SCHEDULE_SLOT_TYPES:
+            slots = _schedule_slots(settings)
+            if slots is not None:
+                slot_type = SCHEDULE_SLOT_TYPES[key]
+                for slot in slots:
+                    if isinstance(slot, dict) and slot.get("t") == slot_type:
+                        return float(slot.get("d", 0))
+                return 0.0
+
+        value = settings.get(key)
+        if value is not None and key in MINUTE_OF_DAY_PARAMS:
+            return round(float(value) / 60, 2)
         return float(value) if value is not None else None
 
     async def async_set_native_value(self, value: float) -> None:
@@ -304,11 +356,12 @@ class FrixosNumber(FrixosEntity, NumberEntity):
             await self.coordinator.async_set_layout_meta(scroll_delay=int(value))
             return
 
+        settings = {}
+        if self.coordinator.data and isinstance(self.coordinator.data, dict):
+            settings = self.coordinator.data.get("settings", {})
+
         # Handle brightness LED array
         if param_key.startswith(f"{PARAM_BRIGHTNESS_LED}_"):
-            settings = {}
-            if self.coordinator.data and isinstance(self.coordinator.data, dict):
-                settings = self.coordinator.data.get("settings", {})
             brightness_array = list(settings.get(PARAM_BRIGHTNESS_LED, [0, 0]))
             index = int(param_key.split("_")[-1])
             # Ensure array is long enough for the index
@@ -317,5 +370,12 @@ class FrixosNumber(FrixosEntity, NumberEntity):
             brightness_array[index] = int(value)
 
             await self.coordinator.async_set_setting(PARAM_BRIGHTNESS_LED, brightness_array)
+        elif param_key in SCHEDULE_SLOT_TYPES and (slots := _schedule_slots(settings)) is not None:
+            slots = _with_slot_duration(slots, SCHEDULE_SLOT_TYPES[param_key], int(value))
+            await self.coordinator.async_set_setting(
+                PARAM_DIGIT_SCHEDULE, json.dumps(slots, ensure_ascii=False, separators=(",", ":"))
+            )
+        elif param_key in MINUTE_OF_DAY_PARAMS:
+            await self.coordinator.async_set_setting(param_key, int(round(value * 60)))
         else:
             await self.coordinator.async_set_setting(param_key, value)
