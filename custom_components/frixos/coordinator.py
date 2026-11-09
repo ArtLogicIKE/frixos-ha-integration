@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
+from .const import CONF_IDENTITY_HOST, DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
 from .screen_layout import (
     decode_screen_layout_binary,
     encode_layout_preset,
@@ -49,6 +49,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self.host = host
         self.port = port
+        self.identity = entry.data.get(CONF_IDENTITY_HOST, host)
         self.base_url = f"http://{host}:{port}"
         self._session = async_get_clientsession(hass)
         self._write_lock = asyncio.Lock()
@@ -74,15 +75,18 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 return_exceptions=True,
             )
 
+            errors: list[str] = []
             if isinstance(settings_data, Exception):
-                _LOGGER.warning("Failed to fetch settings: %s", settings_data)
+                errors.append(f"settings: {_describe_error(settings_data)}")
+                _LOGGER.warning("Failed to fetch settings: %s", _describe_error(settings_data))
                 settings_data = {}
             elif not isinstance(settings_data, dict):
                 _LOGGER.warning("Settings data is not a dict: %s", type(settings_data))
                 settings_data = {}
 
             if isinstance(status_data, Exception):
-                _LOGGER.warning("Failed to fetch status: %s", status_data)
+                errors.append(f"status: {_describe_error(status_data)}")
+                _LOGGER.warning("Failed to fetch status: %s", _describe_error(status_data))
                 status_data = {}
             elif not isinstance(status_data, dict):
                 _LOGGER.warning("Status data is not a dict: %s", type(status_data))
@@ -97,7 +101,10 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 files_data = self.layout_files
 
             if not settings_data and not status_data:
-                raise UpdateFailed("Failed to fetch both settings and status from device")
+                raise UpdateFailed(
+                    f"Failed to fetch both settings and status from device at {self.base_url} "
+                    f"({'; '.join(errors)})"
+                )
 
             # Warm layout cache once so message/preset entities reflect the screen engine.
             if self._layout_cache is None:
@@ -409,6 +416,13 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         if not isinstance(settings, dict):
             return
         _mirror_layout(settings, layout)
+
+
+def _describe_error(err: BaseException) -> str:
+    """Return a readable error; timeouts stringify to an empty message."""
+    if isinstance(err, (asyncio.TimeoutError, TimeoutError)):
+        return "timed out (device did not answer)"
+    return str(err) or type(err).__name__
 
 
 def _mirror_layout(settings: dict[str, Any], layout: dict[str, Any], *, only_missing: bool = False) -> None:

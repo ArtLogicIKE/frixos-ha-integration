@@ -159,7 +159,7 @@ class FrixosSelect(FrixosEntity, SelectEntity):
         """Initialize the select entity."""
         super().__init__(
             coordinator,
-            f"{coordinator.host}_{description.key}",
+            f"{coordinator.identity}_{description.key}",
             description.name,
             description.icon,
             description.key,
@@ -223,7 +223,7 @@ class FrixosLayoutPresetSelect(FrixosEntity, SelectEntity):
         """Initialize the layout preset select."""
         super().__init__(
             coordinator,
-            f"{coordinator.host}_{SELECT_LAYOUT_PRESET}",
+            f"{coordinator.identity}_{SELECT_LAYOUT_PRESET}",
             "Layout Preset",
             "mdi:view-dashboard-variant",
             SELECT_LAYOUT_PRESET,

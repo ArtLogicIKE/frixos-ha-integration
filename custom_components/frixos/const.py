@@ -5,6 +5,9 @@ DOMAIN: Final = "frixos"
 DEFAULT_SCAN_INTERVAL: Final = 300  # seconds (5 minutes)
 DEFAULT_TIMEOUT: Final = 10  # seconds
 DEFAULT_PORT: Final = 80
+# Host the entry was first added with. Entity and device IDs stay keyed on it
+# after a reconfigure moves the entry to a new address.
+CONF_IDENTITY_HOST: Final = "identity_host"
 
 # API endpoints
 ENDPOINT_SETTINGS: Final = "/api/settings"

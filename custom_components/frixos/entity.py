@@ -41,7 +41,7 @@ class FrixosEntity(CoordinatorEntity):
                 version = status.get("version", "Unknown")
         
         return DeviceInfo(
-            identifiers={(DOMAIN, self.coordinator.host)},
+            identifiers={(DOMAIN, self.coordinator.identity)},
             name=self.coordinator.host,
             manufacturer="Frixos",
             model="Frixos Device",

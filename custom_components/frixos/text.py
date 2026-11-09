@@ -113,7 +113,7 @@ class FrixosText(FrixosEntity, TextEntity):
         """Initialize the text entity."""
         super().__init__(
             coordinator,
-            f"{coordinator.host}_{description.key}",
+            f"{coordinator.identity}_{description.key}",
             description.name,
             description.icon,
             description.key,
