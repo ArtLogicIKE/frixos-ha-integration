@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN, DEFAULT_PORT, ENDPOINT_STATUS, DEFAULT_TIMEOUT
+from .const import CONF_IDENTITY_HOST, DOMAIN, DEFAULT_PORT, ENDPOINT_STATUS, DEFAULT_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,6 +99,55 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Point an existing entry at a new host or port, keeping its entities."""
+        entry = self._get_reconfigure_entry()
+        errors = {}
+
+        if user_input is not None:
+            host = user_input[CONF_HOST]
+            port = user_input.get(CONF_PORT, DEFAULT_PORT)
+            unique_id = f"{host}:{port}"
+            try:
+                await validate_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                for other in self._async_current_entries(include_ignore=False):
+                    if other.entry_id != entry.entry_id and other.unique_id == unique_id:
+                        return self.async_abort(reason="already_configured")
+                return self.async_update_reload_and_abort(
+                    entry,
+                    unique_id=unique_id,
+                    data={
+                        **entry.data,
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                        # Entity and device IDs stay keyed on the first host.
+                        CONF_IDENTITY_HOST: entry.data.get(
+                            CONF_IDENTITY_HOST, entry.data[CONF_HOST]
+                        ),
+                    },
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=entry.data[CONF_HOST]): str,
+                    vol.Optional(
+                        CONF_PORT, default=entry.data.get(CONF_PORT, DEFAULT_PORT)
+                    ): int,
+                }
+            ),
+            errors=errors,
         )
 
 

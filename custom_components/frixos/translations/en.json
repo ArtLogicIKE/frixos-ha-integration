@@ -9,6 +9,14 @@
           "port": "Port",
           "name": "Name"
         }
+      },
+      "reconfigure": {
+        "title": "Change Frixos Device Address",
+        "description": "Enter the clock's new IP address or hostname. Entities and their settings are kept.",
+        "data": {
+          "host": "Host (IP or hostname)",
+          "port": "Port"
+        }
       }
     },
     "error": {
@@ -16,7 +24,8 @@
       "unknown": "Unexpected error occurred"
     },
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device is already configured",
+      "reconfigure_successful": "Device address updated"
     }
   }
 }

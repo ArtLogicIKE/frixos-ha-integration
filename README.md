@@ -4,9 +4,11 @@ A custom Home Assistant integration for controlling and monitoring Frixos device
 
 **Requires firmware 70 (FW70) or later.** Older firmware (including early layout-engine builds) is not supported by this integration version.
 
+**Home Assistant 2026.11+ with HTTPS:** set the SSL profile to **Intermediate v6**, not **Modern v6**, or the clock cannot reach Home Assistant. See [Troubleshooting](#clock-stops-showing-home-assistant-values-after-upgrading-to-ha-202611).
+
 ## Firmware requirement (FW70)
 
-Integration **1.3.0** targets current Frixos firmware (**fwversion ≥ 70**, marketing versions **2.52+**) and is checked against **FW73 (2.80)**. FW70 migrated the device data partition from SPIFFS to **LittleFS** (still mounted at `/spiffs`), which unwedged OTA file updates and enables a reliable nested file listing via `/api/files`.
+Integration **1.3.1** targets current Frixos firmware (**fwversion ≥ 70**, marketing versions **2.52+**) and is checked against **FW73 (2.80)**. FW70 migrated the device data partition from SPIFFS to **LittleFS** (still mounted at `/spiffs`), which unwedged OTA file updates and enables a reliable nested file listing via `/api/files`.
 
 The **screen layout engine** (drag-and-drop widgets, day/night profiles, graphs, icons) landed earlier (around FW67). This HACS release assumes that stack is present **and** that you are on FW70+, so layout presets, `/api/screen` writes, and file discovery behave as on current devices.
 
@@ -214,6 +216,10 @@ If/when published to HACS:
    - The integration will validate the connection
    - If successful, you'll see a confirmation message
 
+### Changing the Device Address
+
+If the clock gets a new IP address (for example after a router restart), the integration shows "Failed to fetch both settings and status from device". Go to Settings → Devices & Services → Frixos, open the entry's menu (⋮) and choose **Reconfigure**, then enter the new IP or hostname. Entities, names and dashboards are kept. A DHCP reservation for the clock in your router prevents this.
+
 ### Multiple Devices
 
 You can add multiple Frixos devices by repeating the configuration process. Each device will have its own set of entities.
@@ -346,6 +352,14 @@ When setting the scrolling message, you can use tokens that the device will repl
 3. Prefer fewer `[HA:…]` tokens if free heap is low after boot
 4. Watch `sensor.*_free_heap` / `min_free_heap` while reproducing
 
+### Clock stops showing Home Assistant values after upgrading to HA 2026.11
+
+Home Assistant 2026.11 added versioned SSL profiles for its HTTP server. **Modern v6** accepts TLS 1.3 only. The clock's Home Assistant client (the `[HA:…]` tokens and HA-driven displays) connects with TLS 1.2, so with Modern v6 every request from the clock fails with `ESP_ERR_HTTP_CONNECT`. Time, sunrise and weather keep working because they do not go through Home Assistant.
+
+**Fix:** if Home Assistant serves HTTPS, set its SSL profile to **Intermediate v6** (allows TLS 1.2 and 1.3), not **Modern v6**. The setting is under Settings → System → Network; saving it restarts Home Assistant. If Home Assistant shows a repair offering to update an older SSL profile, choose Intermediate v6 there too.
+
+This affects only the clock calling Home Assistant. The integration itself talks to the clock over plain HTTP and is not affected by the SSL profile.
+
 ## Development
 
 ### File Structure
@@ -403,6 +417,11 @@ For issues or questions:
 This integration is provided as-is for use with Frixos devices.
 
 ## Changelog
+
+### Version 1.3.1
+- Reconfigure: change the clock's IP address or port from the entry menu without losing entities
+- Connection errors now say which address failed and why (timeouts no longer log an empty message)
+- Docs: on Home Assistant 2026.11+, use the **Intermediate v6** SSL profile, not **Modern v6**; the clock's HA client needs TLS 1.2
 
 ### Version 1.3.0
 - Checked against firmware 73 (2.80); requires Home Assistant 2024.11 or later
