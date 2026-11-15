@@ -13,6 +13,7 @@ CONF_IDENTITY_HOST: Final = "identity_host"
 ENDPOINT_SETTINGS: Final = "/api/settings"
 ENDPOINT_STATUS: Final = "/api/status"
 ENDPOINT_SCREEN: Final = "/api/screen"
+ENDPOINT_SCREEN_APPLY: Final = "/api/screen/apply"  # show only, no flash write
 ENDPOINT_FILES: Final = "/api/files"
 
 # Non-pXX select keys

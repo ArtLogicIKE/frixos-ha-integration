@@ -38,7 +38,7 @@ Compared with the previous HACS generation (FW62-era entities), this release add
 
 | Setting | Type | Notes |
 |--------|------|--------|
-| **Layout Preset** | Select | Applies a root `.layout` file from the device gallery via `/api/screen` (same path as the device UI). |
+| **Layout Preset** | Select | Shows a root `.layout` file from the device gallery via `/api/screen/apply`, without writing it to the device's flash, so automations can switch often. After a reboot the device shows the layout last saved in its web UI. Firmware without that endpoint gets `/api/screen` (shown and saved). |
 | **Dim Mode** | Select | Replaces the old “Maintain Full Brightness” switch. Options: **Auto brightness**, **Full brightness**, **Time of day**. |
 | **Dim Start Hour** / **Dim End Hour** | Number (0–23) | Used when Dim Mode is **Time of day**. The device keeps minutes; HA shows hours (22.5 = 22:30). |
 | **Nightscout URL** | Text | Nightscout base URL for glucose (alongside Dexcom / Libre). |

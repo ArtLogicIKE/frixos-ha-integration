@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_IDENTITY_HOST, DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
+from .const import CONF_IDENTITY_HOST, DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SCREEN_APPLY, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
 from .screen_layout import (
     decode_screen_layout_binary,
     encode_layout_preset,
@@ -56,6 +56,8 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         self.layout_files: list[str] = []
         self.active_layout_file: str | None = None
         self._layout_cache: dict[str, Any] | None = None
+        # Firmware before /api/screen/apply answers 404; then presets fall back to /api/screen.
+        self._screen_apply_supported = True
 
         super().__init__(
             hass,
@@ -193,7 +195,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 return False
 
     async def async_apply_layout_preset(self, filename: str) -> bool:
-        """Load a .layout file from the device and apply it via /api/screen."""
+        """Load a .layout file from the device and show it without saving it."""
         async with self._write_lock:
             try:
                 # Device serves .layout as a static file with no JSON Content-Type
@@ -214,7 +216,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
 
                 device_layout = self._layout_cache or await self._fetch_screen_layout()
                 body, layout = encode_layout_preset(data, device_layout)
-                if not await self._post_screen_binary(body):
+                if not await self._post_screen_binary(body, save=False):
                     return False
 
                 self.active_layout_file = filename
@@ -336,13 +338,18 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         self._layout_cache = layout
         return layout
 
-    async def _post_screen_binary(self, body: bytes) -> bool:
-        """POST encoded layout to /api/screen with busy retries."""
+    async def _post_screen_binary(self, body: bytes, *, save: bool = True) -> bool:
+        """POST encoded layout with busy retries.
+
+        save=False shows the layout without writing it to the device's flash
+        (/api/screen/apply); a reboot brings back the saved layout.
+        """
         if not is_supported_screen_wire(body):
             _LOGGER.error("Refusing to POST screen layout with size %s", len(body))
             return False
 
-        url = f"{self.base_url}{ENDPOINT_SCREEN}"
+        apply_only = not save and self._screen_apply_supported
+        url = f"{self.base_url}{ENDPOINT_SCREEN_APPLY if apply_only else ENDPOINT_SCREEN}"
         for attempt in range(_MAX_BUSY_RETRIES):
             try:
                 async with self._session.post(
@@ -361,6 +368,12 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                             _MAX_BUSY_RETRIES,
                         )
                         await asyncio.sleep(_BUSY_RETRY_DELAY_SECONDS * (attempt + 1))
+                        continue
+                    if response.status == 404 and apply_only:
+                        _LOGGER.info("Firmware has no %s; applying and saving instead", ENDPOINT_SCREEN_APPLY)
+                        self._screen_apply_supported = False
+                        apply_only = False
+                        url = f"{self.base_url}{ENDPOINT_SCREEN}"
                         continue
                     result = await response.json(content_type=None)
                     if response.status == 200 and isinstance(result, dict) and result.get("status") == "ok":
