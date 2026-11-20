@@ -210,6 +210,7 @@ If/when published to HACS:
    - **Host**: Enter the IP address or hostname of your Frixos device (e.g., `frixos.local` or `192.168.1.100`)
    - **Port**: Enter the HTTP port (default: 80)
    - **Name**: Enter a friendly name for this device (default: "Frixos")
+   - **Access password**: Only if one is set on the clock's web page (Settings → Connection). Leave it empty otherwise
 
 4. **Submit**
    - Click "Submit"
@@ -219,6 +220,12 @@ If/when published to HACS:
 ### Changing the Device Address
 
 If the clock gets a new IP address (for example after a router restart), the integration shows "Failed to fetch both settings and status from device". Go to Settings → Devices & Services → Frixos, open the entry's menu (⋮) and choose **Reconfigure**, then enter the new IP or hostname. Entities, names and dashboards are kept. A DHCP reservation for the clock in your router prevents this.
+
+### Access Password
+
+Firmware with an access password asks for it before showing its web page or answering the API. The integration stores only a hash of the password (the same PBKDF2 hash the clock keeps, salted with its MAC address), never the password itself, and logs in with a one-time challenge so the password and hash never cross the network. The clock's session lasts 30 days; the integration logs in again on its own.
+
+If you set, change or remove the password on the clock after adding the integration, Home Assistant shows **Re-authentication required** for the Frixos entry: open it and enter the new password. Removing the password needs nothing. Five wrong passwords lock logins for 30 seconds, and the lock grows with each further failure.
 
 ### Multiple Devices
 

@@ -8,6 +8,8 @@ DEFAULT_PORT: Final = 80
 # Host the entry was first added with. Entity and device IDs stay keyed on it
 # after a reconfigure moves the entry to a new address.
 CONF_IDENTITY_HOST: Final = "identity_host"
+# PBKDF2 hash of the device's access password (the password itself is not stored).
+CONF_PASSWORD_HASH: Final = "password_hash"
 
 # API endpoints
 ENDPOINT_SETTINGS: Final = "/api/settings"
