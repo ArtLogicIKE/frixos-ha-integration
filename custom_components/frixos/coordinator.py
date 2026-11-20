@@ -11,10 +11,12 @@ import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_IDENTITY_HOST, DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SCREEN_APPLY, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
+from .auth import AuthLocked, InvalidAuth, async_login, new_cookie_session_kwargs
+from .const import CONF_IDENTITY_HOST, CONF_PASSWORD_HASH, DOMAIN, ENDPOINT_FILES, ENDPOINT_SCREEN, ENDPOINT_SCREEN_APPLY, ENDPOINT_SETTINGS, ENDPOINT_STATUS, DEFAULT_SCAN_INTERVAL
 from .screen_layout import (
     decode_screen_layout_binary,
     encode_layout_preset,
@@ -51,7 +53,14 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         self.port = port
         self.identity = entry.data.get(CONF_IDENTITY_HOST, host)
         self.base_url = f"http://{host}:{port}"
-        self._session = async_get_clientsession(hass)
+        # Own session: its cookie jar keeps the access password's session cookie.
+        # Home Assistant closes it when the entry unloads.
+        self._session = async_create_clientsession(hass, **new_cookie_session_kwargs())
+        self._password_hash: str | None = entry.data.get(CONF_PASSWORD_HASH)
+        # Set after the device rejected our hash. Every failed login counts toward the
+        # device's lockout, which also locks out its web page, so we stop trying until
+        # re-authentication reloads the entry with a new hash.
+        self._auth_rejected = False
         self._write_lock = asyncio.Lock()
         self.layout_files: list[str] = []
         self.active_layout_file: str | None = None
@@ -67,15 +76,36 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
 
+    async def _login(self) -> None:
+        """Log in after a 401: no session yet, it expired, or the password changed."""
+        if self._auth_rejected:
+            raise ConfigEntryAuthFailed("Access password needed: waiting for re-authentication")
+        try:
+            await async_login(self._session, self.base_url, self._password_hash)
+        except InvalidAuth as err:
+            self._auth_rejected = True
+            # Asks the user for the password; also reached from writes, not only refreshes.
+            self.config_entry.async_start_reauth(self.hass)
+            raise ConfigEntryAuthFailed(f"Access password needed: {err}") from err
+        except AuthLocked as err:
+            raise UpdateFailed(f"Device refuses logins: {err}") from err
+
+    async def _fetch_all(self) -> list[Any]:
+        return await asyncio.gather(
+            self._fetch_settings(),
+            self._fetch_status(),
+            self._fetch_files(),
+            return_exceptions=True,
+        )
+
     async def _async_update_data(self) -> dict:
         """Fetch data from Frixos device."""
         try:
-            settings_data, status_data, files_data = await asyncio.gather(
-                self._fetch_settings(),
-                self._fetch_status(),
-                self._fetch_files(),
-                return_exceptions=True,
-            )
+            results = await self._fetch_all()
+            if any(isinstance(r, _AuthRequired) for r in results):
+                await self._login()
+                results = await self._fetch_all()
+            settings_data, status_data, files_data = results
 
             errors: list[str] = []
             if isinstance(settings_data, Exception):
@@ -126,7 +156,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 "active_layout_file": self.active_layout_file,
                 "layout": self._layout_cache,
             }
-        except UpdateFailed:
+        except (UpdateFailed, ConfigEntryAuthFailed):
             raise
         except Exception as err:
             raise UpdateFailed(f"Error communicating with device: {err}") from err
@@ -136,6 +166,8 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         url = f"{self.base_url}{ENDPOINT_SETTINGS}"
         try:
             async with self._session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 401:
+                    raise _AuthRequired
                 if response.status == 200:
                     data = await response.json()
                     if not isinstance(data, dict):
@@ -151,6 +183,8 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         url = f"{self.base_url}{ENDPOINT_STATUS}"
         try:
             async with self._session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 401:
+                    raise _AuthRequired
                 if response.status == 200:
                     data = await response.json()
                     if not isinstance(data, dict):
@@ -165,6 +199,8 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch SPIFFS file list and return .layout preset names."""
         url = f"{self.base_url}{ENDPOINT_FILES}"
         async with self._session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+            if response.status == 401:
+                raise _AuthRequired
             if response.status != 200:
                 return list(self.layout_files)
             data = await response.json()
@@ -202,9 +238,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 # (browser fetch().json() is fine; aiohttp requires content_type=None).
                 safe_name = quote(filename.lstrip("/"), safe="/")
                 layout_url = f"{self.base_url}/{safe_name}"
-                async with self._session.get(
-                    layout_url, timeout=aiohttp.ClientTimeout(total=15)
-                ) as response:
+                async with await self._get_logged_in(layout_url, 15) as response:
                     if response.status != 200:
                         _LOGGER.error("Failed to load layout %s: HTTP %s", filename, response.status)
                         return False
@@ -326,7 +360,7 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
     async def _fetch_screen_layout(self) -> dict[str, Any] | None:
         """Fetch and decode current screen layout binary."""
         url = f"{self.base_url}{ENDPOINT_SCREEN}"
-        async with self._session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as response:
+        async with await self._get_logged_in(url, 15) as response:
             if response.status != 200:
                 _LOGGER.error("Failed to fetch screen layout: HTTP %s", response.status)
                 return None
@@ -361,6 +395,9 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                     },
                     timeout=aiohttp.ClientTimeout(total=20),
                 ) as response:
+                    if response.status == 401 and attempt + 1 < _MAX_BUSY_RETRIES:
+                        await self._login()
+                        continue
                     if response.status == 503:
                         _LOGGER.warning(
                             "Device busy (503) posting screen layout, retry %s/%s",
@@ -400,6 +437,9 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
+                if response.status == 401 and attempt + 1 < _MAX_BUSY_RETRIES:
+                    await self._login()
+                    continue
                 if response.status == 503:
                     _LOGGER.warning(
                         "Device busy (503) updating settings, retry %s/%s",
@@ -421,6 +461,15 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.error("Device remained busy after %s retries", _MAX_BUSY_RETRIES)
         return None
 
+    async def _get_logged_in(self, url: str, timeout: float) -> aiohttp.ClientResponse:
+        """GET that logs in once on a 401; use the response with async with."""
+        response = await self._session.get(url, timeout=aiohttp.ClientTimeout(total=timeout))
+        if response.status == 401:
+            response.release()
+            await self._login()
+            response = await self._session.get(url, timeout=aiohttp.ClientTimeout(total=timeout))
+        return response
+
     def _mirror_layout_into_settings(self, layout: dict[str, Any]) -> None:
         """Keep coordinator settings mirrors in sync after a layout write."""
         if not self.data or not isinstance(self.data, dict):
@@ -429,6 +478,10 @@ class FrixosDataUpdateCoordinator(DataUpdateCoordinator):
         if not isinstance(settings, dict):
             return
         _mirror_layout(settings, layout)
+
+
+class _AuthRequired(Exception):
+    """The device answered 401: log in, then fetch again."""
 
 
 def _describe_error(err: BaseException) -> str:

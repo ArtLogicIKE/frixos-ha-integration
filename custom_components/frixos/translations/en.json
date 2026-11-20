@@ -7,7 +7,8 @@
         "data": {
           "host": "Host (IP or hostname)",
           "port": "Port",
-          "name": "Name"
+          "name": "Name",
+          "password": "Access password (only if one is set on the clock)"
         }
       },
       "reconfigure": {
@@ -15,17 +16,28 @@
         "description": "Enter the clock's new IP address or hostname. Entities and their settings are kept.",
         "data": {
           "host": "Host (IP or hostname)",
-          "port": "Port"
+          "port": "Port",
+          "password": "Access password (leave empty to keep the saved one)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Frixos access password",
+        "description": "The clock at {host} asks for an access password. Enter the password set on its web page (Settings, Connection). Home Assistant stores only a hash of it.",
+        "data": {
+          "password": "Access password"
         }
       }
     },
     "error": {
       "cannot_connect": "Unable to connect to the device. Please check the host and port.",
-      "unknown": "Unexpected error occurred"
+      "unknown": "Unexpected error occurred",
+      "invalid_auth": "This clock has an access password. Enter it, or check that it is right.",
+      "auth_locked": "Too many wrong passwords. The clock refuses logins for a while; try again in a minute."
     },
     "abort": {
       "already_configured": "Device is already configured",
-      "reconfigure_successful": "Device address updated"
+      "reconfigure_successful": "Device address updated",
+      "reauth_successful": "Access password updated"
     }
   }
 }
